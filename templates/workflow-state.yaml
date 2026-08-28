@@ -1,0 +1,21 @@
+schema_version: 1
+profile: "profile-id@version"
+milestone: "M001"
+stage: "product-planning"
+active_role: "product/base"
+active_agent: "product-maya"
+status: "active"
+
+required_artifacts: []
+pending_user_decisions: []
+open_change_requests: []
+
+allowed_transitions:
+  - "remain_in_current_stage"
+
+last_transition:
+  from: null
+  to: "product-planning"
+  confirmed_by: "user"
+  decision_id: null
+  timestamp: "YYYY-MM-DDTHH:MM:SSZ"

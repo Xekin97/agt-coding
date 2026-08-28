@@ -1,0 +1,14 @@
+schema_version: 1
+
+agents:
+  - role: "product/to-c"
+    display_name: "product-maya"
+    runtime_name: "product_maya"
+    runtime_id: null
+    status: "active"
+    activated_at: "YYYY-MM-DDTHH:MM:SSZ"
+
+# display_name 必须使用 <role-prefix>-<person-name>，并在项目内唯一。
+# runtime_name 仅用于平台不接受连字符时的内部映射。
+# runtime_id 可以保存平台生成的 opaque ID，但不得作为用户可见名称。
+# 同类角色并行时使用不同人名，例如 frontend-bob、frontend-alice。

@@ -1,0 +1,265 @@
+schema_version: 1
+id: "consumer-ai-web"
+version: "1.0.0"
+status: "available"
+name: "Consumer AI Web"
+summary: >-
+  面向公众消费者、以 AI 内容生成或转换为核心价值、同时需要账号、权限分组、
+  用量控制和完整前后端交付的响应式 Web 产品研发流程。
+
+recommendation:
+  fit:
+    - "面向个人消费者的公开 Web 产品"
+    - "AI 生成、转换或辅助内容是核心用户价值"
+    - "同时支持匿名访客、注册用户或权益分组"
+    - "需要模型路由、调用配额、成本控制或流式返回"
+    - "首个里程碑需要产品、设计、数据库、前后端和验证完整闭环"
+  mismatch:
+    - "企业多租户、复杂组织权限或采购审批主导的 ToB 产品"
+    - "原生移动端、桌面端或离线优先产品"
+    - "医疗、金融、法律等直接产生高风险专业决策的系统"
+    - "依赖大规模人工内容审核或实时多人协作的产品"
+    - "只提供无界面的底层 API、模型平台或基础设施"
+  defaults:
+    - "产品角色使用 ToC 变体，优先分析首次价值、留存、匿名到注册的状态变化和用户信任"
+    - "从模块化单体和单一关系型数据库开始评估，不默认微服务、消息队列或复杂缓存"
+    - "AI 凭据仅保存在服务端，客户端只调用产品后端"
+    - "对长耗时 AI 生成优先评估流式响应、中断恢复、超时和降级"
+    - "模型、提示词、结构化输出、配额和成本必须可观测并可测试"
+  tradeoffs:
+    - benefit: "覆盖 ToC AI Web 从产品定义到验证的完整闭环。"
+      cost: "比只做原型或单端实现需要更多阶段审批和正式产物。"
+    - benefit: "把 AI 输出契约、成本、失败恢复和评估纳入每个相关阶段。"
+      cost: "首版需要额外定义测试样本、模型配置和运行观测。"
+    - benefit: "匿名、注册和权益分组共用统一权限模型，便于后续演进。"
+      cost: "即使首版不收费，也需要明确组别、额度和管理员边界。"
+
+decision_policy:
+  profile_defaults_status: "PROPOSED"
+  user_confirmation_required_for:
+    - "产品范围、角色权限与里程碑验收标准"
+    - "技术栈、数据库、部署和架构选择"
+    - "AI 提供方、模型策略、成本上限与降级行为"
+    - "个人信息、内容归属、保留删除和安全策略"
+  rule: >-
+    本 Profile 的默认倾向只能作为角色建议，不得直接记录为 CONFIRMED，
+    也不得覆盖初始化问卷或用户后续明确决定。
+
+roles:
+  - id: "product/to-c"
+    kind: "specialist"
+    display_name_prefix: "product"
+    sources:
+      - "roles/product/base.md"
+      - "roles/product/variants/to-c.md"
+    skill: ".agents/skills/agt-product-planning/SKILL.md"
+  - id: "uiux/base"
+    kind: "specialist"
+    display_name_prefix: "designer"
+    sources:
+      - "roles/uiux/base.md"
+    skill: ".agents/skills/agt-uiux-design/SKILL.md"
+  - id: "dba/base"
+    kind: "specialist"
+    display_name_prefix: "dba"
+    sources:
+      - "roles/dba/base.md"
+    skill: ".agents/skills/agt-database-design/SKILL.md"
+  - id: "backend-architect/base"
+    kind: "specialist"
+    display_name_prefix: "backend"
+    sources:
+      - "roles/backend-architect/base.md"
+    skill: ".agents/skills/agt-backend-design/SKILL.md"
+  - id: "frontend-architect/base"
+    kind: "specialist"
+    display_name_prefix: "frontend"
+    sources:
+      - "roles/frontend-architect/base.md"
+    skill: ".agents/skills/agt-frontend-design/SKILL.md"
+  - id: "backend-implementer/base"
+    kind: "specialist"
+    display_name_prefix: "backend"
+    sources:
+      - "roles/backend-implementer/base.md"
+    skill: ".agents/skills/agt-backend-implement/SKILL.md"
+  - id: "frontend-implementer/base"
+    kind: "specialist"
+    display_name_prefix: "frontend"
+    sources:
+      - "roles/frontend-implementer/base.md"
+    skill: ".agents/skills/agt-frontend-implement/SKILL.md"
+  - id: "quality/base"
+    kind: "specialist"
+    display_name_prefix: "qa"
+    sources:
+      - "roles/quality/base.md"
+    skill: ".agents/skills/agt-verify-milestone/SKILL.md"
+  - id: "gatekeeper"
+    kind: "control"
+    display_name_prefix: "gatekeeper"
+    sources:
+      - "roles/gatekeeper/ROLE.md"
+    skill: ".agents/skills/agt-stage-gate/SKILL.md"
+
+workflow:
+  milestone_pattern: "^M[0-9]{3}$"
+  initial_stage: "product-planning"
+  terminal_stage: "milestone-complete"
+  control_role: "gatekeeper"
+  stages:
+    - id: "product-planning"
+      completion_policy: "single-role"
+      allowed_roles:
+        - "product/to-c"
+      required_artifacts:
+        - ".planning/milestones/{milestone}/product/overview.md"
+        - ".planning/milestones/{milestone}/product/data-assets.md"
+        - ".planning/milestones/{milestone}/product/abilities.md"
+        - ".planning/milestones/{milestone}/product/pages/index.md"
+        - ".planning/milestones/{milestone}/product/ai-behavior.md"
+        - ".planning/milestones/{milestone}/handoffs/product.md"
+      user_approval_required: true
+      transitions:
+        - "uiux-design"
+
+    - id: "uiux-design"
+      completion_policy: "single-role"
+      allowed_roles:
+        - "uiux/base"
+      required_artifacts:
+        - ".planning/milestones/{milestone}/design/theme.css"
+        - ".planning/milestones/{milestone}/design/prototype/index.html"
+        - ".planning/milestones/{milestone}/design/interactions.md"
+        - ".planning/milestones/{milestone}/design/responsive-accessibility.md"
+        - ".planning/milestones/{milestone}/handoffs/uiux.md"
+      user_approval_required: true
+      transitions:
+        - "technical-design"
+        - "product-planning"
+
+    - id: "technical-design"
+      completion_policy: "all-roles"
+      role_sequence:
+        - "dba/base"
+        - "backend-architect/base"
+        - "frontend-architect/base"
+      allowed_roles:
+        - "dba/base"
+        - "backend-architect/base"
+        - "frontend-architect/base"
+      required_artifacts:
+        - ".planning/milestones/{milestone}/technical/database.md"
+        - ".planning/milestones/{milestone}/technical/backend.md"
+        - ".planning/milestones/{milestone}/technical/api/index.md"
+        - ".planning/milestones/{milestone}/technical/frontend.md"
+        - ".planning/milestones/{milestone}/technical/ai-integration.md"
+        - ".planning/milestones/{milestone}/handoffs/database.md"
+        - ".planning/milestones/{milestone}/handoffs/backend-architecture.md"
+        - ".planning/milestones/{milestone}/handoffs/frontend-architecture.md"
+      user_approval_required: true
+      transitions:
+        - "implementation"
+        - "product-planning"
+        - "uiux-design"
+
+    - id: "implementation"
+      completion_policy: "all-roles"
+      role_sequence:
+        - "backend-implementer/base"
+        - "frontend-implementer/base"
+      allowed_roles:
+        - "backend-implementer/base"
+        - "frontend-implementer/base"
+      required_artifacts:
+        - ".planning/milestones/{milestone}/implementation/backend-validation.md"
+        - ".planning/milestones/{milestone}/implementation/frontend-validation.md"
+        - ".planning/milestones/{milestone}/handoffs/backend-implementation.md"
+        - ".planning/milestones/{milestone}/handoffs/frontend-implementation.md"
+      user_approval_required: true
+      transitions:
+        - "verification"
+        - "product-planning"
+        - "uiux-design"
+        - "technical-design"
+
+    - id: "verification"
+      completion_policy: "single-role"
+      allowed_roles:
+        - "quality/base"
+      required_artifacts:
+        - ".planning/milestones/{milestone}/verification/coverage-matrix.md"
+        - ".planning/milestones/{milestone}/verification/report.md"
+        - ".planning/milestones/{milestone}/verification/ai-evaluation.md"
+        - ".planning/milestones/{milestone}/verification/uat.md"
+        - ".planning/milestones/{milestone}/handoffs/verification.md"
+      user_approval_required: true
+      transitions:
+        - "milestone-complete"
+        - "product-planning"
+        - "uiux-design"
+        - "technical-design"
+        - "implementation"
+
+    - id: "milestone-complete"
+      completion_policy: "terminal"
+      allowed_roles: []
+      required_artifacts: []
+      user_approval_required: false
+      transitions: []
+
+ai_delivery_contract:
+  applies_when: "AI generation, transformation, classification, recommendation, or extraction is user-visible."
+  product_requirements:
+    owner_role: "product/to-c"
+    required_topics:
+      - "AI 输入、用户配置项、输出结构和可见状态"
+      - "什么结果可被用户接受、拒绝、重试或保存"
+      - "匿名、注册和权益组之间的模型与额度差异"
+      - "超时、限流、内容不合格、部分输出和中断后的用户体验"
+      - "模型输出带来的隐私、内容归属和信任边界"
+  technical_requirements:
+    owner_role: "backend-architect/base"
+    required_topics:
+      - "服务端凭据保存和最小权限配置"
+      - "提供方适配层、模型路由、提示词版本和结构化输出校验"
+      - "流式传输协议、断开处理、超时、重试、降级和幂等"
+      - "按用户组执行配额、速率与成本限制"
+      - "请求关联、模型与用量记录、错误分类和成本可观测性"
+  frontend_technical_requirements:
+    owner_role: "frontend-architect/base"
+    required_topics:
+      - "流式数据读取、增量解析、取消操作和组件状态边界"
+      - "等待、首段到达、部分结果、完成、超时、中断和可重试错误状态"
+      - "页面离开、重复提交和弱网络下的请求取消与恢复策略"
+      - "匿名与不同权益组的可用模型、剩余额度和限制反馈"
+  implementation_requirements:
+    owner_role: "backend-implementer/base"
+    required_topics:
+      - "使用可重复的提供方替身测试成功、超时、限流、畸形输出和流中断"
+      - "不得在客户端代码、日志、错误响应或测试夹具中泄露真实 API 密钥"
+      - "结构化结果先验证再持久化，失败不得写入半成品正式资源"
+  frontend_implementation_requirements:
+    owner_role: "frontend-implementer/base"
+    required_topics:
+      - "使用契约一致的流式 Mock 覆盖增量渲染、取消、重试和错误反馈"
+      - "未通过完整性校验的部分结果不得被用户保存为正式资源"
+      - "权限组限制必须来自服务端结果，客户端提示不能代替服务端强制执行"
+  verification_requirements:
+    owner_role: "quality/base"
+    required_topics:
+      - "建立覆盖典型输入、边界输入和失败路径的固定参考样本"
+      - "验证输出结构、目标语言、必需词覆盖、权限组策略和流式体验"
+      - "将概率性内容质量与确定性业务正确性分开判定"
+      - "记录模型、配置和样本版本，使验证结果可解释和可复现"
+
+delivery_defaults:
+  architecture: "modular-monolith-first"
+  database: "single-relational-database-first"
+  web_delivery: "responsive-web"
+  api_contract: "markdown-first"
+  ai_credentials: "server-side-only"
+  ai_response: "streaming-when-user-visible-and-long-running"
+  observability: "request-id, model, latency, token-or-provider-usage, outcome, and cost when available"
+  security: "least-privilege, per-user data isolation, secret redaction, and rate enforcement"
+  testing: "unit plus module integration plus contract-aligned mocks plus targeted AI reference cases"
