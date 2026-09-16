@@ -1,0 +1,25 @@
+{
+  "objective": "实现已批准任务中的一个明确变更",
+  "inputs": [
+    ".planning/milestones/M001/technical/frontend.md",
+    ".planning/milestones/M001/design/interactions.md"
+  ],
+  "write_scope": [
+    "frontend/app/example.vue",
+    "frontend/tests/example.test.ts"
+  ],
+  "acceptance": [
+    "逐项满足关联验收条件",
+    "执行相关测试并保留失败与通过证据",
+    "不修改API契约、批准设计或工作流状态"
+  ],
+  "risk": "normal",
+  "prior_attempts": [],
+  "report": [
+    "changed_paths",
+    "commands_and_exit_codes",
+    "evidence_paths",
+    "unresolved_findings",
+    "actual_model_and_usage_if_observed"
+  ]
+}

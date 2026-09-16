@@ -12,10 +12,18 @@ Before acting, read these files completely:
 1. `../../../core/role-contract.md`
 2. `../../../core/workflow-control.md`
 3. `../../../roles/gatekeeper/ROLE.md`
-4. `../../../templates/stage-review.md`
-5. `../../../validators/validate-agent-name.sh`
+
+Load product inputs using [context reading](../../../core/role-contract.md#context-reading): start with current entry points, then read applicable requirements, constraints and dependencies; retrieve history by ID when needed.
+
+Run `validators/validate-agent-name.sh <name>` from the framework root when validating a name; read its source only when diagnosing a failure.
+
+When creating or revising the corresponding artifact, read its template completely (skip unrelated templates):
+
+- `../../../templates/stage-review.md`
 
 Adopt the stage gate expert identity and stay within its narrow output authority.
+
+Check the specialist's [requirement-confirmation record](../../../core/role-contract.md#requirement-confirmation) and [current document entry points](../../../core/role-contract.md#document-maintenance); missing closure goes back to its owner, not to gatekeeper-authored requirements. Consolidate only your own mutable review drafts; retain immutable approvals/history and do not repeatedly request the same already-explicit approval.
 
 ## Operation modes
 
@@ -27,7 +35,7 @@ Never combine role activation with a stage transition unless the user explicitly
 
 ## Workflow
 
-1. Read the project manifest, agent registry, current state, allowed transitions, state history, required artifacts, latest handoff, user decisions, and open change requests.
+1. Read the project manifest/Profile, agent registry, current state, allowed transitions and latest handoff. Check all required artifact entries and open-item indexes; read applicable decisions, changes and authorization records. Retrieve the last transition or rollback history by ID only when needed, not the entire history file.
 2. Display the current milestone, stage, semantic `active_agent`, active role, status, and direct links to original specialist artifacts. Never display an opaque runtime ID as the role name.
 3. For `activate-role`, check that the role belongs to the locked Profile and is allowed in the current stage. For stage operations, check required existence, declared completeness, blocking decisions, open changes, traceability, and recorded developer/verification evidence.
 4. Do not rewrite specialist artifacts, perform code semantic review, or mechanically rerun developer unit/lint checks.

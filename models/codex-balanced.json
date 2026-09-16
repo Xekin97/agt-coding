@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "id": "codex-balanced",
+  "version": "1.0.0",
+  "verified_at": "2026-09-07",
+  "sources": [
+    "https://learn.chatgpt.com/docs/agent-configuration/subagents",
+    "https://learn.chatgpt.com/docs/app-server",
+    "https://developers.openai.com/api/docs/models/gpt-6-astra",
+    "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+  ],
+  "bindings": {
+    "economy": {
+      "model": "gpt-5.6-luna",
+      "effort": "medium"
+    },
+    "balanced": {
+      "model": "gpt-5.6-terra",
+      "effort": "medium"
+    },
+    "strong": {
+      "model": "gpt-5.6-sol",
+      "effort": "high"
+    },
+    "frontier": {
+      "model": "gpt-6-astra",
+      "effort": "high"
+    }
+  },
+  "roles": {
+    "bootstrap": {
+      "stage": "bootstrap",
+      "tier": "frontier",
+      "skill": "agt-start-project"
+    },
+    "product/to-c": {
+      "stage": "product-planning",
+      "tier": "frontier",
+      "skill": "agt-product-planning"
+    },
+    "product/to-b": {
+      "stage": "product-planning",
+      "tier": "frontier",
+      "skill": "agt-product-planning"
+    },
+    "uiux/base": {
+      "stage": "uiux-design",
+      "tier": "strong",
+      "skill": "agt-uiux-design"
+    },
+    "dba/base": {
+      "stage": "technical-design",
+      "tier": "frontier",
+      "skill": "agt-database-design"
+    },
+    "backend-architect/base": {
+      "stage": "technical-design",
+      "tier": "frontier",
+      "skill": "agt-backend-design"
+    },
+    "frontend-architect/base": {
+      "stage": "technical-design",
+      "tier": "frontier",
+      "skill": "agt-frontend-design"
+    },
+    "backend-implementer/base": {
+      "stage": "implementation",
+      "tier": "strong",
+      "skill": "agt-backend-implement"
+    },
+    "frontend-implementer/base": {
+      "stage": "implementation",
+      "tier": "strong",
+      "skill": "agt-frontend-implement"
+    },
+    "quality/base": {
+      "stage": "verification",
+      "tier": "strong",
+      "skill": "agt-verify-milestone"
+    },
+    "gatekeeper": {
+      "stage": "control",
+      "tier": "balanced",
+      "skill": "agt-stage-gate"
+    }
+  },
+  "tasks": {
+    "stage-work": {
+      "tier": null,
+      "stages": [
+        "bootstrap",
+        "product-planning",
+        "uiux-design",
+        "technical-design",
+        "implementation",
+        "verification",
+        "control"
+      ]
+    },
+    "plan": {
+      "tier": "strong",
+      "stages": [
+        "implementation",
+        "verification"
+      ]
+    },
+    "coding": {
+      "tier": "economy",
+      "stages": [
+        "implementation"
+      ]
+    },
+    "mechanical": {
+      "tier": "economy",
+      "stages": [
+        "implementation"
+      ]
+    },
+    "unit-tests": {
+      "tier": "economy",
+      "stages": [
+        "implementation"
+      ]
+    },
+    "test-design": {
+      "tier": "strong",
+      "stages": [
+        "implementation",
+        "verification"
+      ]
+    },
+    "test-execution": {
+      "tier": "tool",
+      "stages": [
+        "implementation",
+        "verification",
+        "control"
+      ]
+    },
+    "initial-fix": {
+      "tier": "economy",
+      "stages": [
+        "implementation"
+      ]
+    },
+    "debug": {
+      "tier": "strong",
+      "stages": [
+        "implementation",
+        "verification"
+      ]
+    },
+    "code-review": {
+      "tier": "strong",
+      "stages": [
+        "implementation",
+        "verification"
+      ]
+    },
+    "acceptance": {
+      "tier": "strong",
+      "stages": [
+        "verification"
+      ]
+    },
+    "documentation": {
+      "tier": "economy",
+      "stages": [
+        "bootstrap",
+        "product-planning",
+        "uiux-design",
+        "technical-design",
+        "implementation",
+        "verification",
+        "control"
+      ]
+    }
+  },
+  "escalation": {
+    "attempts_per_tier": 2,
+    "max_failed_attempts": 8,
+    "high_risk_floor": "strong",
+    "critical_risk_floor": "frontier"
+  },
+  "update_policy": {
+    "automatic_detection": true,
+    "automatic_rebinding": false,
+    "unavailable_model": "block",
+    "unsupported_effort": "block",
+    "silent_fallback": false
+  }
+}
