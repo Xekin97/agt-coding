@@ -1,6 +1,6 @@
 schema_version: 1
 id: "consumer-ai-web"
-version: "1.0.0"
+version: "2.0.0"
 status: "available"
 name: "Consumer AI Web"
 summary: >-
@@ -128,6 +128,8 @@ workflow:
       allowed_roles:
         - "uiux/base"
       required_artifacts:
+        - ".planning/milestones/{milestone}/design/design-spec.md"
+        - ".planning/milestones/{milestone}/design/copy.json"
         - ".planning/milestones/{milestone}/design/theme.css"
         - ".planning/milestones/{milestone}/design/prototype/index.html"
         - ".planning/milestones/{milestone}/design/interactions.md"

@@ -18,6 +18,14 @@
 
 `required_artifacts` 中的 `{milestone}` 在产品仓库初始化和阶段迁移时替换为当前里程碑，例如 `M001`。所有产物路径都相对于产品仓库根目录。
 
+## 交付契约与升级
+
+新增必需产物会改变已有产品的阶段完成条件，应作为不兼容的交付契约变更提升 Profile 主版本；`schema_version` 仅在 Profile 文件结构变化时调整。
+
+`consumer-ai-web@2.0.0` 在 UI/UX 阶段新增 `design/design-spec.md` 和 `design/copy.json`，分别提供 agent 可定位的设计入口与可复用文案源，其余必需路径、角色和阶段保持不变。交付内容遵循[设计协议](../core/design-delivery.md)与[规格模板](../templates/design-spec.md)；结构校验器只检查 Profile，不证明产品设计、文案或还原已经通过。
+
+产品同时锁定基座 revision 和 Profile 版本。旧项目继续使用其锁定版本；采用新版前比较产物与规则差异，记录采用范围及缺口，不因基座升级自动重写产品锁、状态、设计或审批。旧版本可从其原基座 revision 恢复。已有明确设计整改要求时按当前要求重构，不能以兼容旧产物为由继续执行失效设计。
+
 ## 角色和阶段规则
 
 - `kind: specialist` 的角色必须属于至少一个工作阶段；`kind: control` 的守门角色通过 `workflow.control_role` 声明。
