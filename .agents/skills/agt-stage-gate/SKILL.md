@@ -7,6 +7,8 @@ description: Handle an explicit agt-coding role activation, stage submission, ap
 
 Use this Skill only when the user explicitly requests role activation or switching, stage submission, approval, transition, recovery, or rollback.
 
+A bounded fix or small enhancement can use the adopted [Quick workflow](../../../core/quick-tasks.md) without a milestone transition. Do not force role activation or a new milestone solely because the current milestone is complete. Quick status belongs to its task record; this gate continues to own milestone transitions.
+
 Before acting, read these files completely:
 
 1. `../../../core/role-contract.md`

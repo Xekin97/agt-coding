@@ -84,6 +84,25 @@ node --test tests/workstreams.test.mjs
 
 ## 研发流程
 
+### 小任务：AGT Quick
+
+已有明确范围的小修复、小增强、测试、配置和文档工作可以直接说“修复这个问题”，或使用 `$agt-quick <任务>`。执行者采用短计划、针对性验证与一份可恢复任务记录，无需新建/重开里程碑；已完成 M002 也可以作为参考基线。任务完成、人工接受、Git 提交与发布分别判断。
+
+Quick 按影响组织产品、设计、技术、QA 和交接责任项：变更写回对应正式文档，任务记录保存责任映射与真实执行回执。上游未确认、正文未回写或版本已变化会阻止下游验收/任务收尾。支持已授权 agent 接手任务包，也可按责任串行执行；串行处理不能冒称独立验收。详见[文档责任](core/quick-tasks.md#变更回落与文档责任)。
+
+收尾必须完成本批文档的语义整理并登记 `compact`，随后 `finish` 检查有效验收、正文回落、整理回执和可追溯原件。`show/resume` 默认精简，历史用 `--history` 按需展开；原始失败与测试证据保留。独立接续未运行时如实记录 NOT_RUN。详见[上下文收尾](core/quick-tasks.md#上下文收尾与归档)。
+
+```text
+$agt-quick 修复设置页保存后提示未更新的问题
+$agt-quick list
+$agt-quick status Q001-fix-settings-feedback
+$agt-quick resume Q001-fix-settings-feedback
+```
+
+范围清楚就直接执行，出现影响验收的重要新决定再澄清；多需求完整交付仍使用原需求/里程碑流程。详见[粒度与执行协议](core/quick-tasks.md)、[Skill](.agents/skills/agt-quick/SKILL.md)及[任务模板](templates/quick-task.json)。Profile 2.0/2.1 可显式增量采用，不要求切换到并行模式；当前 Quick 工具暂不在启用 workstreams 的产品写任务。命令入口 `node adapters/quick/agt-quick.mjs --help`，行为测试 `node --test tests/quick-tasks.test.mjs`。
+
+### 里程碑交付
+
 一个里程碑按照以下阶段推进：
 
 ```text
@@ -154,6 +173,7 @@ node validators/measure-context.mjs -- ../project/.planning/workflow/state.yaml 
 | `$agt-backend-implement` | 高级后端开发：实现已批准方案并完成开发期质量检查 |
 | `$agt-frontend-implement` | 高级前端开发：实现已批准 UI 与前端方案并完成开发期质量检查 |
 | `$agt-workstream` | 多窗口需求工作流：创建、查看、恢复、集成与清理 |
+| `$agt-quick` | 有界小任务：短计划、实施、针对性验证、查看与恢复；不重开里程碑 |
 | `$agt-verify-milestone` | 高级产品质量专家：验证 UI、API、集成、E2E 与用户验收 |
 | `$agt-stage-gate` | 阶段守门专家：显式激活角色、验收、迁移、恢复或回溯 |
 

@@ -1,0 +1,19 @@
+{
+  "slug": "fix-specific-behavior",
+  "title": "修复明确的问题",
+  "request": "用户原话及来源；已有授权直接引用",
+  "executor": "当前会话的实际执行者",
+  "milestone": null,
+  "sources": [".planning/workflow/state.yaml"],
+  "write_scope": ["src/example.js"],
+  "plan": ["定位原因与相关约束", "实施有界修改", "验证验收条件，收敛正式正文并 compact 后 finish"],
+  "document_impacts": {
+    "product": {"status": "none", "reason": "填写核对过的需求来源及是否改变业务行为"},
+    "design": {"status": "none", "reason": "填写核对过的设计来源及是否改变界面或交互"},
+    "technical": {"status": "none", "reason": "填写核对过的技术来源及是否改变数据、API或架构契约"},
+    "verification": {"status": "none", "reason": "填写现有QA报告/矩阵是否需要更新及依据"},
+    "handoff": {"status": "none", "reason": "填写当前交接/入口是否需要更新及依据"}
+  },
+  "document_tasks": [],
+  "acceptance": [{"id": "AC1", "description": "可观察、可验证的完成条件", "verification": "command"}]
+}
