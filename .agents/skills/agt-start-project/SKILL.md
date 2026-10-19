@@ -27,7 +27,7 @@ Apply the shared [requirement-confirmation loop](../../../core/role-contract.md#
 
 ## Workflow
 
-1. Identify the `agt-coding` repository and the separate product repository. Do not place product artifacts in this repository.
+1. Identify the framework and separate product repository. Check for an existing manifest/state before initialization; an added requirement in an existing project follows its current workflow and the shared [authorization scope](../../../core/workflow-control.md#authorization-scope), not reinitialization or automatic milestone numbering. Do not overwrite its locked setup or put product artifacts in this repository.
 2. Confirm that this Skill is running from the repository-local `.agents/skills`; do not install, copy, or modify user-global Skills.
 3. Inspect actual `profiles/*/PROFILE.yaml` files. Validate each candidate with `validators/validate-profile.sh`; only recommend Profiles that exist, pass validation, and declare `status: available`.
 4. Run the structured questionnaire in small coherent groups. Preserve free-form meaning and mark each answer `CONFIRMED`, `PROVISIONAL`, `UNKNOWN`, or `NOT_APPLICABLE`.
@@ -38,5 +38,7 @@ Apply the shared [requirement-confirmation loop](../../../core/role-contract.md#
 9. Write `.planning/agt/agents.yaml`. Preserve the hyphenated `display_name`; if Codex requires a restricted task name, record an underscore `runtime_name` separately.
 10. After selection, write the product repository manifest, questionnaire record, agent registry, and initial workflow state. Record the exact agt Git revision and Profile version, and set `active_agent` to the semantic display name. Keep state compact using existing Profile paths and source references; merge a short reference to the shared context-reading rule into existing product agent instructions when present, preserving their other rules. Do not create duplicate planning entry files.
 11. Activate product planning as the next suggested role, but do not perform product planning in this Skill.
+
+Profiles may advertise opt-in workstreams. Keep single-flow initialization by default. If the user explicitly chooses independent requirement workflows, record that choice and route adoption to `$agt-workstream` after the manifest/Profile are locked; do not silently enable it or duplicate specialist definitions.
 
 If no usable Profile exists, report the missing capability and preserve the questionnaire answers. Do not invent a selectable Profile or initialize a misleading manifest.

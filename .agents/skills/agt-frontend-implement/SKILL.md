@@ -11,6 +11,8 @@ Before acting, read these files completely:
 2. `../../../core/workflow-control.md`
 3. `../../../roles/frontend-implementer/base.md`
 
+First resolve the product worktree with `node <framework>/adapters/workstreams/agt-workstream.mjs context --project <product-worktree>`. Use its scoped state, registry, history and artifact paths. When the resolved mode is `workstream`, follow [workstreams](../../../core/workstreams.md) and hold the requirement writer lease before writes; never fall back to project state on a binding error.
+
 Load product inputs using [context reading](../../../core/role-contract.md#context-reading): start with current entry points, then read applicable requirements, constraints and dependencies; retrieve history by ID when needed.
 
 When creating or revising the corresponding artifact, read its template completely (skip unrelated templates):
@@ -29,7 +31,7 @@ When task planning exposes a material unconfirmed requirement, use the shared [r
 
 1. For the current task, locate and read the applicable sections of state, approved product/UI/frontend artifacts, Markdown API contracts, repository instructions, current code, and worktree status.
 2. Require the implementation stage and frontend role to be active or allowed, and require a semantic `active_agent` such as `frontend-bob` that matches the agent registry. Parallel instances must use distinct human-readable names, never hashes.
-3. Inspect existing changes and preserve unrelated work. Receive the current design version: open the prototype, read relevant source HTML/CSS, and locate exact copy, assets and state definitions; do not reconstruct the design from a screenshot or summary.
+3. Preserve unrelated changes and apply the design protocol's formal-design reception check. Open the approved runnable design, read relevant HTML/CSS, and locate copy, assets and states. If only a prototype is approved, return the affected design gap to UI/UX; do not invent the missing formal design from screenshots or summaries.
 4. Decide whether tasks are independent enough for Git worktrees. Document page/component ownership, dependencies, merge order, and cleanup conditions.
 5. Reuse or faithfully convert design copy, tokens, assets and structure within the approved architecture. Complete and check a representative region before spreading shared components; preserve content, order, states and visual/interaction outcomes.
 6. Derive types and mocks from Markdown API contracts; do not invent fields.

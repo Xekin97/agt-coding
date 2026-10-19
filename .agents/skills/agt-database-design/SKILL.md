@@ -11,6 +11,8 @@ Before acting, read these files completely:
 2. `../../../core/workflow-control.md`
 3. `../../../roles/dba/base.md`
 
+First resolve the product worktree with `node <framework>/adapters/workstreams/agt-workstream.mjs context --project <product-worktree>`. Use its scoped state, registry, history and artifact paths. When the resolved mode is `workstream`, follow [workstreams](../../../core/workstreams.md) and hold the requirement writer lease before writes; never fall back to project state on a binding error.
+
 Load product inputs using [context reading](../../../core/role-contract.md#context-reading): start with current entry points, then read applicable requirements, constraints and dependencies; retrieve history by ID when needed.
 
 When creating or revising the corresponding artifact, read its template completely (skip unrelated templates):

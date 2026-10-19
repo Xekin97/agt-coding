@@ -18,6 +18,8 @@
 
 `required_artifacts` 中的 `{milestone}` 在产品仓库初始化和阶段迁移时替换为当前里程碑，例如 `M001`。所有产物路径都相对于产品仓库根目录。
 
+可选的 `workflow.workstreams` 以 `supported: true`、`opt_in: true` 和 `artifact_root: ".planning/milestones/{milestone}/workstreams/{workstream}"` 声明需求并行能力。只有产品显式采用后，解析器才将原里程碑产物前缀映射到工作流根目录；没有采用时必需路径不变。阶段、角色和审批规则复用，终止阶段的完成范围是当前需求。
+
 ## 交付契约与升级
 
 新增必需产物会改变已有产品的阶段完成条件，应作为不兼容的交付契约变更提升 Profile 主版本；`schema_version` 仅在 Profile 文件结构变化时调整。
@@ -27,6 +29,8 @@
 产品同时锁定基座 revision 和 Profile 版本。旧项目继续使用其锁定版本；采用新版前比较产物与规则差异，记录采用范围及缺口，不因基座升级自动重写产品锁、状态、设计或审批。旧版本可从其原基座 revision 恢复。已有明确设计整改要求时按当前要求重构，不能以兼容旧产物为由继续执行失效设计。
 
 ## 角色和阶段规则
+
+`consumer-ai-web@2.1.0` 增加上述可选能力，不新增单流程必需产物。既有产品需显式升级锁并采用并行配置，原状态、审批和文档保留；采用步骤见[需求工作流协议](../core/workstreams.md)。配置保存所采用 Profile 的快照，不随基座文件自动变化。
 
 - `kind: specialist` 的角色必须属于至少一个工作阶段；`kind: control` 的守门角色通过 `workflow.control_role` 声明。
 - `active_role` 必须来自当前阶段的 `allowed_roles`，控制角色执行显式门禁操作时除外。

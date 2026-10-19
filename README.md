@@ -36,7 +36,7 @@ my-product-workspace/
 
 同一角色类别可以由基座维护多个变体，例如 `product/to-b` 和 `product/to-c`。产品选择已有变体，但不在产品仓库内定制或复制角色 Prompt；通用改进应回到基座演进。
 
-当前提供 `consumer-ai-web@2.0.0`，适用于面向公众消费者、以 AI 内容生成或转换为核心价值，并需要账号、权益分组、用量控制和完整前后端交付的响应式 Web 产品。初始化角色仍必须先完成问卷、展示匹配与不匹配项，并等待用户明确选择。
+当前提供 `consumer-ai-web@2.1.0`，适用于面向公众消费者、以 AI 内容生成或转换为核心价值，并需要账号、权益分组、用量控制和完整前后端交付的响应式 Web 产品。初始化角色仍必须先完成问卷、展示匹配与不匹配项，并等待用户明确选择。
 
 ### 专业角色直达用户
 
@@ -61,6 +61,26 @@ my-product-workspace/
 - `qa-quinn`
 
 哈希、UUID、时间戳和平台 runtime ID 不得作为用户可见名称。运行时名称和 ID 可以单独保存，但工作流、交接记录与用户对话始终使用语义名称。
+
+## 多窗口需求并行
+
+新增 `$agt-workstream`：同一里程碑内，每个需求拥有独立分支、worktree、阶段状态、角色和专业产物。A 窗口可以做登录优化的设计，B 窗口同时实现学习报告。
+
+没有固定主窗口。任意产品 worktree 都能查看、恢复或发起集成；合并在临时 worktree 验证，通过后才更新指定集成分支。写入会话租约和共享集成锁避免多个遵守协议的窗口竞争同一需求或目标。关闭窗口后依据 Git 与文件恢复。
+
+```text
+$agt-workstream 创建 登录优化
+$agt-workstream 创建 学习报告
+$agt-workstream 查看
+$agt-workstream 集成 登录优化
+```
+
+专业工作继续使用原有 agt skills 和阶段守门器。旧项目默认保留单流程；显式采用 `consumer-ai-web@2.1.0` 的可选能力后启用。详见[工作流协议与命令](core/workstreams.md)和[skill 入口](.agents/skills/agt-workstream/SKILL.md)。脚本入口：
+
+```bash
+node adapters/workstreams/agt-workstream.mjs --help
+node --test tests/workstreams.test.mjs
+```
 
 ## 研发流程
 
@@ -131,6 +151,7 @@ node validators/measure-context.mjs -- ../project/.planning/workflow/state.yaml 
 | `$agt-frontend-design` | 高级前端架构师：设计路由、组件、状态、数据访问与工程方案 |
 | `$agt-backend-implement` | 高级后端开发：实现已批准方案并完成开发期质量检查 |
 | `$agt-frontend-implement` | 高级前端开发：实现已批准 UI 与前端方案并完成开发期质量检查 |
+| `$agt-workstream` | 多窗口需求工作流：创建、查看、恢复、集成与清理 |
 | `$agt-verify-milestone` | 高级产品质量专家：验证 UI、API、集成、E2E 与用户验收 |
 | `$agt-stage-gate` | 阶段守门专家：显式激活角色、验收、迁移、恢复或回溯 |
 
@@ -138,7 +159,7 @@ node validators/measure-context.mjs -- ../project/.planning/workflow/state.yaml 
 
 ## 可选的分档模型编排
 
-模型按“阶段默认＋任务覆盖＋风险下限＋失败升级”选择，不将每个角色永久绑定一个模型：需求/架构用Astra，计划/设计判断/独立验收用Sol，明确编码/单测/文档用Luna，事务性守门检查用Terra，纯test/lint/build直接交工具。
+模型按“阶段默认＋任务覆盖＋风险下限＋失败升级”选择，不将每个角色永久绑定一个模型：需求/架构用GPT-6 Astra / high，计划/设计判断/独立验收用GPT-6.1 Sol / high，明确编码/单测/文档用GPT-6 Luna / medium，事务性守门检查用GPT-6.1 Sol / medium，纯test/lint/build直接交工具。
 
 已提供[中央策略](models/codex-balanced.json)、[调度契约](core/model-routing.md)、[任务包](templates/model-task.json)和[可执行Codex适配器](adapters/codex/README.md)。它查询真实模型能力、生成不可覆盖的版本化锁、解析任务，并通过显式model/effort启动新的Codex CLI会话。默认dry-run，不热切换已打开的App聊天，不修改全局Codex配置，也不自动升级已有产品。
 
@@ -179,7 +200,7 @@ agt-coding/
 ├── .agents/skills/   # Codex 仓库级工作入口
 ├── core/             # 所有角色共享的职责与流程契约
 ├── models/           # 可版本化的模型分档策略
-├── adapters/codex/   # 模型发现、解析、更新检查和显式启动
+├── adapters/         # Codex 模型调度与需求 worktree 管理
 ├── profiles/         # 可选择的角色、工作流、产物和默认策略组合
 ├── roles/            # 基础专业角色及角色变体
 ├── templates/        # 决策、变更、交接、状态与契约模板

@@ -18,7 +18,7 @@ stream.on("line", line => {
  if (mode === "error") { console.log(JSON.stringify({id:msg.id,error:{message:"fixture error"}})); return; }
  if (mode === "malformed") { console.log("not-json"); return; }
  if (msg.method === "initialize") { console.log(JSON.stringify({id:msg.id,result:{}})); return; }
- const models = ["gpt-6-astra","gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna"].map(model=>({model,hidden:false,supportedReasoningEfforts:[{reasoningEffort:"medium"},{reasoningEffort:"high"}]}));
+ const models = ["gpt-6.1-sol","gpt-6-astra","gpt-6-sol","gpt-6-luna"].map(model=>({model,hidden:false,supportedReasoningEfforts:["low","medium","high","xhigh","max",...(model === "gpt-6-luna" ? [] : ["ultra"])].map(reasoningEffort => ({reasoningEffort}))}));
  const first = !msg.params.cursor;
  const result = mode === "cycle" ? {data:models.slice(0,1),nextCursor:"same"} :
    first ? {data:models.slice(0,2),nextCursor:"second"} : {data:models.slice(2),nextCursor:null};

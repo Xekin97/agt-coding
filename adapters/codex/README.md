@@ -8,13 +8,15 @@
 | --- | --- | --- |
 | 初始化、需求/产品策划 | GPT-6 Astra / high | 不默认max |
 | DBA、前后端架构 | GPT-6 Astra / high | 不用低成本执行者重新决定架构 |
-| UI/UX设计 | GPT-5.6 Sol / high | 全新复杂交互/高风险判定升Astra |
-| 实施主角色、Plan、测试设计 | GPT-5.6 Sol / high | 明确任务包后再交执行档 |
-| 普通编码、机械修改、单测生成、局部初修 | GPT-5.6 Luna / medium | 明确写入范围/输入/验收；高风险直接Sol |
+| UI/UX设计 | GPT-6.1 Sol / high | 全新复杂交互/高风险判定升Astra |
+| 实施主角色、Plan、测试设计 | GPT-6.1 Sol / high | 明确任务包后再交执行档 |
+| 普通编码、机械修改、单测生成、局部初修 | GPT-6 Luna / medium | 明确写入范围/输入/验收；高风险直接Sol |
 | test/lint/tsc/build执行 | 工具，无模型 | 失败解释/覆盖判断另分配任务 |
-| 疑难Bug、Code Review、独立验收 | GPT-5.6 Sol / high | critical升Astra |
-| 普通文档整理 | GPT-5.6 Luna / medium | 新需求、架构结论、验收判断不属于整理 |
-| 守门器事务性检查 | GPT-5.6 Terra / medium + 校验脚本 | 不替专业角色复写方案或进行语义验收 |
+| 疑难Bug、Code Review、独立验收 | GPT-6.1 Sol / high | critical升Astra |
+| 普通文档整理 | GPT-6 Luna / medium | 新需求、架构结论、验收判断不属于整理 |
+| 守门器事务性检查 | GPT-6.1 Sol / medium + 校验脚本 | 不替专业角色复写方案或进行语义验收 |
+
+当前中央策略为`codex-balanced` 1.1.0（2026-10-05核验）。`balanced`和`strong`共用GPT-6.1 Sol，分别使用medium和high；从均衡档升级到强档时提高推理等级，四档职责和失败升级次数保持不变。
 
 优先级：角色/阶段合法性 → 任务覆盖 → 风险下限 → 失败次数升级 → 当前Codex可用性与effort校验。
 
@@ -86,6 +88,10 @@ node adapters/codex/agt-models.mjs check-updates \
 
 输出CLI版本变化、策略差异、新增/移除模型、effort变化和upgrade候选。模型/effort失效时退出码2并阻止launch；无效协议或发现失败退出码1。不静默改成“latest”，也不在发现失败后以旧缓存声称可用。
 
+本次1.1.0更新将economy从GPT-5.6 Luna改为GPT-6 Luna，balanced从GPT-5.6 Terra改为GPT-6.1 Sol / medium，strong从GPT-5.6 Sol改为GPT-6.1 Sol / high。frontier继续使用GPT-6 Astra / high。已有1.0.0锁仍按原模型解析，中央策略更新本身不改写旧锁；旧模型不再出现在当前清单时按既有规则阻塞。
+
+策略允许显式配置`ultra`，但必须由当前Codex `model/list`确认该模型支持。本机0.159.3清单中的GPT-6.1 Sol和GPT-6 Astra支持`ultra`，GPT-6 Luna不支持；默认档位继续使用medium/high。API模型页的effort列表不能代替Codex运行时能力。
+
 更新流程：
 
 1. 查询当前清单、核实官方能力/成本；不能按名称排序猜最强或最便宜。
@@ -104,14 +110,14 @@ node --test tests/model-routing.test.mjs
 
 --inventory允许resolve/lock/check-updates使用规范化JSON快照，用于离线评审/测试；launch不能使用离线清单，始终实时预检。--codex指定另一安装位置；测试使用本地替身，不发付费模型请求。
 
-已验证策略/风险映射、bounded escalation、模型/effort阻塞、元数据分页/错误/超时、锁不可覆盖、状态角色不匹配、路径边界、默认dry-run、所选model/effort进入执行参数、无权限提升参数。实机CLI 0.153.4仅做模型发现和路由检查；未运行真实收费编码任务。替身验证启动链路，**不证明各模型对实际项目的质量或节省比例**。
+40项自动化测试通过，覆盖策略/风险映射、bounded escalation、模型/effort阻塞、元数据分页/错误/超时、锁不可覆盖、旧绑定兼容、ultra能力限制、状态角色不匹配、路径边界、默认dry-run、所选model/effort进入执行参数和无权限提升参数。实机CLI 0.159.3仅做模型发现和1,128组角色/任务/风险/失败次数路由检查，以及ultra能力核对；未运行真实收费编码任务。替身验证启动链路，**不证明各模型对实际项目的质量或节省比例**。
 
 当前没有账单/usage采集、预算熔断或持久化失败计数器；总成本需含主会话、执行者、重试与返工，缺usage标unknown。不能用API价格计算Codex订阅扣费。将来模型调整只改中央映射，不必逐个重写角色。
 
-## 官方依据（2026-09-07核验）
+## 官方依据（2026-10-05核验）
 
 - [Codex子代理模型与effort](https://learn.chatgpt.com/docs/agent-configuration/subagents)：工作可选不同模型，未指定时可能继承；分派本身也消耗tokens。
 - [Codex App Server model/list](https://learn.chatgpt.com/docs/app-server#list-models-modellist)：运行时模型、effort、分页和upgrade元数据。
-- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)、[GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)：能力定位；API参数与Codex可用性分别核实。
+- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)、[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)、[GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)：能力定位；API参数与Codex可用性分别核实。
 
-任务分工是AGT工程建议，不是OpenAI对每类任务结果的保证。可用性以当前账号Codex发现结果为准。
+任务分工是AGT工程建议，不是OpenAI对每类任务结果的保证。路由预检以当前Codex返回的模型清单为准；清单中的条目不是实际调用成功或账号权益的证明。

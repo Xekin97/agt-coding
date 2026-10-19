@@ -1,6 +1,6 @@
 schema_version: 1
 id: "consumer-ai-web"
-version: "2.0.0"
+version: "2.1.0"
 status: "available"
 name: "Consumer AI Web"
 summary: >-
@@ -103,6 +103,10 @@ roles:
     skill: ".agents/skills/agt-stage-gate/SKILL.md"
 
 workflow:
+  workstreams:
+    supported: true
+    opt_in: true
+    artifact_root: ".planning/milestones/{milestone}/workstreams/{workstream}"
   milestone_pattern: "^M[0-9]{3}$"
   initial_stage: "product-planning"
   terminal_stage: "milestone-complete"

@@ -3,6 +3,8 @@ schema_version: 1
 # 既有字段不能未经读取方兼容检查就删除；可选入口缺失时按 Profile/交接定位。
 profile: "profile-id@version"
 milestone: "M001"
+# 并行需求由创建器添加 workstream: "<slug>"，文件放在该需求 workflow/ 下。
+# 单流程不添加；并行项目的此顶层文件只协调里程碑，不覆盖各需求当前阶段。
 stage: "product-planning"
 active_role: "product/base"
 active_agent: "product-maya"

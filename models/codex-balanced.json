@@ -1,25 +1,26 @@
 {
   "schema_version": 1,
   "id": "codex-balanced",
-  "version": "1.0.0",
-  "verified_at": "2026-09-07",
+  "version": "1.1.0",
+  "verified_at": "2026-10-05",
   "sources": [
     "https://learn.chatgpt.com/docs/agent-configuration/subagents",
     "https://learn.chatgpt.com/docs/app-server",
     "https://developers.openai.com/api/docs/models/gpt-6-astra",
-    "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+    "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+    "https://developers.openai.com/api/docs/models/gpt-6-luna"
   ],
   "bindings": {
     "economy": {
-      "model": "gpt-5.6-luna",
+      "model": "gpt-6-luna",
       "effort": "medium"
     },
     "balanced": {
-      "model": "gpt-5.6-terra",
+      "model": "gpt-6.1-sol",
       "effort": "medium"
     },
     "strong": {
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "effort": "high"
     },
     "frontier": {

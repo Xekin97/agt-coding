@@ -11,6 +11,8 @@ Before acting, read these files completely:
 2. `../../../core/workflow-control.md`
 3. `../../../roles/frontend-architect/base.md`
 
+First resolve the product worktree with `node <framework>/adapters/workstreams/agt-workstream.mjs context --project <product-worktree>`. Use its scoped state, registry, history and artifact paths. When the resolved mode is `workstream`, follow [workstreams](../../../core/workstreams.md) and hold the requirement writer lease before writes; never fall back to project state on a binding error.
+
 Load product inputs using [context reading](../../../core/role-contract.md#context-reading): start with current entry points, then read applicable requirements, constraints and dependencies; retrieve history by ID when needed.
 
 When creating or revising the corresponding artifact, read its template completely (skip unrelated templates):
@@ -29,7 +31,7 @@ Before turning ambiguous page behavior or data meaning into frontend contracts, 
 
 1. For the current task, locate and read the applicable sections of the Profile, state, approved product artifacts, HTML/CSS/JS design, interactions, Markdown API contracts, existing frontend, and decisions.
 2. Require the technical-design stage and frontend architect role to be active or allowed, and require a semantic `active_agent` such as `frontend-bob` that matches the agent registry. Do not work under a hash or opaque runtime ID.
-3. Check the current design version, runnable prototype, precise copy, assets and state entry points. Trace design regions and acceptance items to routes, components, application models and APIs; report conflicting or missing inputs rather than filling them by inference.
+3. Apply the design protocol's formal-design reception check: approved purpose/version/scope, runnable sources, copy, assets and state entry points. Trace regions and acceptance items to routes, components, models and APIs. Authorized preliminary technical work may use marked provisional inputs; it does not make an interaction prototype implementation-ready.
 4. Compare rendering and library choices from confirmed product needs. Treat SSR as a preference to evaluate, not an automatic conclusion.
 5. Design components, state ownership, types, data access, contract-derived mocks, errors, permissions, performance, accessibility and deployment. Specify copy/token/asset reuse or conversion, plus runtime content, structure and visual/interaction checks in the frontend plan.
 6. Do not invent API fields, rewrite UI copy or alter current approved design results. When design changes, update affected mappings and verification expectations instead of inheriting superseded constraints.

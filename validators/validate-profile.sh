@@ -159,6 +159,12 @@ errors << "workflow.terminal_stage does not exist: #{terminal_stage}" if termina
 errors << "workflow stage ids must be unique" unless stage_ids.uniq.length == stage_ids.length
 
 referenced_specialists = []
+if workflow.key?("workstreams")
+  streams = workflow["workstreams"]
+  unless streams.is_a?(Hash) && streams["supported"] == true && streams["opt_in"] == true && streams["artifact_root"] == ".planning/milestones/{milestone}/workstreams/{workstream}"
+    errors << "workflow.workstreams must explicitly declare supported, opt_in and the scoped artifact_root"
+  end
+end
 artifact_paths = []
 stages.each_with_index do |stage, index|
   context = "workflow.stages[#{index}]"

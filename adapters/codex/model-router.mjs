@@ -2,6 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, lstatSync, realpathSync } from "node:fs";
 import { resolve, relative, isAbsolute, dirname } from "node:path";
+import { resolveContext, readYaml, inside } from "../workstreams/context.mjs";
 
 export const tiers = ["economy", "balanced", "strong", "frontier"];
 export const digest = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -14,7 +15,7 @@ export function validatePolicy(p) {
   assert(p?.schema_version === 1 && slug(p.id) && typeof p.version === "string", "Invalid routing policy");
   for (const tier of tiers) {
     const b = p.bindings?.[tier];
-    assert(slug(b?.model) && ["low", "medium", "high", "xhigh", "max"].includes(b.effort), "Invalid binding: " + tier);
+    assert(slug(b?.model) && ["low", "medium", "high", "xhigh", "max", "ultra"].includes(b.effort), "Invalid binding: " + tier);
   }
   assert(p.roles && Object.keys(p.roles).length && p.tasks && Object.keys(p.tasks).length, "Missing roles/tasks");
   for (const [role, r] of Object.entries(p.roles)) {
@@ -173,10 +174,9 @@ export function writeNewLock(path, lock) {
 }
 
 export function readActiveState(project) {
-  const script = 'require "yaml"; require "json"; require "date"; root=ARGV.fetch(0); s=YAML.safe_load(File.read(File.join(root,".planning/workflow/state.yaml")), permitted_classes: [Time,Date], aliases: false); r=YAML.safe_load(File.read(File.join(root,".planning/agt/agents.yaml")), permitted_classes: [Time,Date], aliases: false); puts JSON.generate({state:s,agents:r.fetch("agents")})';
-  const result = spawnSync("ruby", ["-e", script, project], { encoding: "utf8", timeout: 3000, maxBuffer: 1024 * 1024 });
-  assert(result.status === 0, "Cannot read workflow/agent registry with Ruby; no stage inferred");
-  const { state, agents } = JSON.parse(result.stdout);
+  const context = resolveContext(project);
+  const state = readYaml(inside(context.project, context.state));
+  const { agents } = readYaml(inside(context.project, context.agents));
   assert(state.status === "active", "Workflow is not active; use the stage gate first");
   const active = agents.filter(a => a.status === "active");
   assert(active.length === 1 && active[0].role === state.active_role && active[0].display_name === state.active_agent, "Active role/agent registry mismatch");
