@@ -10,6 +10,8 @@
 
 已锁定旧版本按原契约运行，显式采用新版才迁移。采用前先核对用户范围、基座 revision、Profile 和现有未提交修改，不能因为开启并行就自动重开已完成里程碑。
 
+迁移已集成的旧子分支时，`enable --inherited <JSON文件>` 接受 `[{"id":"growth-import","source_commit":"完整SHA","integration_commit":"完整SHA"}]`。工具核对源版本已进入集成提交、两者均属于当前父分支历史，且旧源分支未移动。`list` 将其显示为历史已集成，不重做 QA，也不允许 claim/resume；新工作使用新 ID。旧源发生变化时明确显示未集成/错误，不能隐去后续提交。旧分支和 worktree 不被改写。
+
 ## 创建、查看与恢复
 
 1. 在父分支采用并提交配置：`enable --milestone M001 --target milestone/M001`，或 `enable --quick Q001-slug --target quick/Q001-slug`；同时传入锁定 `--profile` 和已有 `--approval` 来源，两种父 ID 参数互斥。

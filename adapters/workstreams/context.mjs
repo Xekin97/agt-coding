@@ -58,9 +58,24 @@ export function validateConfig(config) {
     assert(p.branch === config.target && typeof p.base_commit === "string" && /^[a-f0-9]{40,64}$/.test(p.base_commit), "Parent target/base mismatch");
     assert(p.kind === "milestone" ? /^M[0-9]{3}$/.test(p.id) : /^Q[0-9]{3,}-/.test(p.id), "Parent kind/ID mismatch");
     assert(config.target === (p.kind === "milestone" ? `milestone/${p.id}` : `quick/${p.id}`), "Workstream target must be its parent branch");
+    const inherited = config.inherited_workstreams || [];
+    assert(Array.isArray(inherited) && new Set(inherited.map(item => item.id)).size === inherited.length, "Inherited workstreams must have unique IDs");
+    for (const item of inherited) {
+      streamRoot(p.id, item.id);
+      assert(/^[a-f0-9]{40,64}$/.test(item.source_commit) && /^[a-f0-9]{40,64}$/.test(item.integration_commit), "Inherited workstreams need full source/integration commits");
+    }
   }
   streamRoot(parentId(config), "check");
   return config;
+}
+// Historical integration is a frozen adoption fact, not an active legacy binding.
+export function inheritedWorkstreamStatus(root, config, item, target = config.target) {
+  const branch = `agt/${parentId(config)}/${item.id}`;
+  const observed = git(root, ["rev-parse", "--verify", `refs/heads/${branch}`], true);
+  const ancestor = (a, b) => git(root, ["merge-base", "--is-ancestor", a, b], true) !== null;
+  const error = observed && observed !== item.source_commit ? "inherited_source_changed"
+    : !ancestor(item.source_commit, item.integration_commit) || !ancestor(item.integration_commit, target) ? "inherited_integration_not_in_parent" : null;
+  return { branch, observed_source: observed, integrated: error === null, error };
 }
 export function artifacts(profile, parent, id, stage) {
   const root = id ? streamRoot(parent, id) : `.planning/${parent.startsWith("Q") ? "quick" : "milestones"}/${parent}`;
@@ -98,6 +113,7 @@ export function resolveContext(project) {
   if (branch === config.target) return { mode: "coordinator", project: root, config, state: ".planning/workflow/state.yaml", agents: ".planning/agt/agents.yaml", history: ".planning/workflow/history.yaml" };
   assert(branch?.startsWith(prefix), "No workstream binding for current branch (or detached HEAD); choose its worktree explicitly");
   const id = branch.slice(prefix.length), artifactRoot = streamRoot(parent, id);
+  assert(!config.inherited_workstreams?.some(item => item.id === id), "Inherited workstream is retired and read-only; start a new child for further work");
   const metadata = readJson(inside(root, `${artifactRoot}/workstream.json`));
   assert(metadata.branch === branch && metadata.id === id && metadata.milestone === config.milestone && (config.schema_version !== 2 || metadata.parent?.id === parent) && metadata.target === config.target, "Workstream binding mismatch");
   const state = `${artifactRoot}/workflow/state.yaml`;

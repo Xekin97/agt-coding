@@ -162,3 +162,36 @@ test("completed legacy Quick imports without stale originals or claiming new tes
   write(task.worktree, `${d.unitRoot(id)}/outcome.md`, "Changed after closeout");
   assert.throws(() => quick.show(task.worktree, id), /Final material changed/);
 });
+
+test("final squash rejects unrelated unfinished planning while allowing unchanged inherited directories", t => {
+  const { root, dir } = fixture(t);
+  write(root, ".planning/milestones/M009/existing.md", "Unchanged legacy directory"); commit(root);
+  const path = ready(root, dir), id = "M001";
+  const initial = d.prepare(path, { id }); assert.equal(initial.status, "prepared");
+  write(path, ".planning/milestones/M004/active.md", "Unfinished unrelated work"); commit(path);
+  assert.throws(() => d.prepare(path, { id }), /Unfinished unrelated planning cannot enter main/);
+  rmSync(join(path, ".planning/milestones/M004"), { recursive: true });
+  write(path, ".planning/quick/Q099-unfinished/task.json", "Unfinished unrelated Quick"); commit(path);
+  assert.throws(() => d.prepare(path, { id }), /Unfinished unrelated planning cannot enter main/);
+});
+
+test("removing an entire legacy active unit requires explicit scoped migration", t => {
+  const { root, dir } = fixture(t);
+  write(root, ".planning/milestones/M004/active.md", "Old main contains unfinished planning"); commit(root);
+  const path = ready(root, dir), id = "M001", base = git(root, ["rev-parse", "main"]);
+  rmSync(join(path, ".planning/milestones/M004"), { recursive: true }); commit(path);
+  assert.throws(() => d.prepare(path, { id }), /Whole-unit removal needs explicit migration authorization/);
+  const prepared = d.prepare(path, { id, maintenance: { source: "User authorized moving active M004 off main", ids: ["M004"], branch: "milestone/M001", base_commit: base } });
+  assert.equal(prepared.status, "prepared");assert.equal(existsSync(join(prepared.worktree, ".planning/milestones/M004")),false);
+});
+
+test("final squash refuses a moved inherited source even when its later commit was manually merged", t => {
+  const { root, dir } = fixture(t), path = ready(root, dir), frozen = git(path, ["rev-parse", "HEAD"]);
+  git(path, ["branch", "agt/M001/previous"]);
+  write(path, ".planning/agt/workstreams.json", { target: "milestone/M001", parent: { id: "M001" }, inherited_workstreams: [{ id: "previous", source_commit: frozen, integration_commit: frozen }] }); commit(path);
+  assert.equal(d.prepare(path, { id: "M001" }).status, "prepared");
+  const old = join(dir, "old-source"); git(path, ["worktree", "add", old, "agt/M001/previous"]);
+  write(old, "later.txt", "Later change on retired source"); commit(old); git(path, ["merge", "--no-ff", "agt/M001/previous", "-m", "manual later merge"]);
+  review(path, "M001"); d.seal(path, "M001", { status: "accepted" }); commit(path);
+  assert.throws(() => d.prepare(path, { id: "M001" }), /Inherited workstream changed since adoption/);
+});

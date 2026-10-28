@@ -5,7 +5,7 @@ import * as streams from "./workstreams.mjs";
 
 const help = `agt-workstream <command> --project PATH [options]
   context                         Resolve scoped state/registry/artifacts (read-only)
-  enable --profile FILE --target BRANCH (--milestone M001 | --quick Q001-slug) --approval SOURCE
+  enable --profile FILE --target BRANCH (--milestone M001 | --quick Q001-slug) --approval SOURCE [--inherited FILE]
   create --id SLUG --title TEXT --scope TEXT --agent product-NAME [--path PATH] [--dependencies JSON_ARRAY]
   list                            Show live and committed progress (read-only)
   resume --id SLUG [--path PATH]   Locate/recreate a worktree; does not steal a session
@@ -32,7 +32,7 @@ try {
   else {
     const options = {};
     const allowed = {
-      context: [], enable: ["profile", "target", "milestone", "quick", "approval"], create: ["id", "title", "scope", "agent", "path", "dependencies"],
+      context: [], enable: ["profile", "target", "milestone", "quick", "approval", "inherited"], create: ["id", "title", "scope", "agent", "path", "dependencies"],
       list: [], resume: ["id", "path"], claim: ["id", "owner", "pid"], release: ["id", "token"], recover: ["id", "token", "operation-lock"],
       activate: ["role", "agent", "token", "approval"], checkpoint: ["token"], accept: ["token", "approval", "decision", "evidence"], integrate: ["id"],
       check: ["id", "checks"], finish: ["id"], "pause-integration": ["id"], cleanup: ["id"],
@@ -48,6 +48,7 @@ try {
     }
     const project = options.project || process.cwd();
     for (const key of ["dependencies", "evidence"]) if (options[key]) options[key] = JSON.parse(options[key]);
+    if (options.inherited) options.inherited_workstreams = JSON.parse(readFileSync(options.inherited, "utf8"));
     if (options.checks) options.commands = JSON.parse(readFileSync(options.checks, "utf8"));
     options.operationLock = options["operation-lock"];
     const action = command === "context" ? resolveContext : command === "pause-integration" ? streams.pauseIntegration : streams[command];

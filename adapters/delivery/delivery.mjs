@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync, lstatSync, readlinkSync, unlinkSync, openSync, closeSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { assert, git, inside, safePath, readJson, readYaml, worktrees } from "../workstreams/context.mjs";
+import { assert, git, inside, safePath, readJson, readYaml, worktrees, inheritedWorkstreamStatus } from "../workstreams/context.mjs";
 
 export const POLICY = ".agt/delivery.json";
 export const ARCHIVES = ".agt/deliveries";
@@ -291,10 +291,37 @@ function assertReviewedCode(root, summary) {
     }
   }
 }
+function assertFinalPlanningScope(candidate, id, base, authorizationRoot, maintenance) {
+  const entries = git(candidate, ["ls-files", "-z"]).split("\0").filter(Boolean);
+  const allowed = new Set([unitRoot(id)]);
+  for (const path of entries.filter(path => path.startsWith(`${ARCHIVES}/`) && path.endsWith("/summary.json"))) {
+    const summary = JSON.parse(gitBytes(candidate, `:${path}`));
+    if (summary.schema_version !== 2 || !summary.closed) continue;
+    validateSummary(candidate, summary.id, file => gitBytes(candidate, `:${file}`));
+    for (const owned of ownedRoots(summary.id, summary.owned_roots?.slice(1))) allowed.add(owned);
+  }
+  const changed = git(candidate, ["diff", "--cached", "--no-renames", "--name-only", base]).split("\n").filter(Boolean);
+  const roots = new Set(changed.map(path => /^(\.planning\/(?:milestones|quick)\/[^/]+)(?:\/|$)/.exec(path)?.[1]).filter(Boolean));
+  for (const scope of roots) {
+    if (allowed.has(scope)) continue;
+    const survives = entries.some(path => path === scope || path.startsWith(`${scope}/`));
+    assert(!survives, `Unfinished unrelated planning cannot enter main: ${scope}`);
+    const removedId = scope.split("/").at(-1);
+    assert(maintenanceAllowed(authorizationRoot, removedId, maintenance, base), `Whole-unit removal needs explicit migration authorization: ${removedId}`);
+  }
+}
 export function prepare(root, { id, maintenance }) {
   const p = branchPolicy(root), source = parentBranch(id), target = p.main_branch || "main";
   assert(branch(root) === source, `Run final delivery in ${source}`); clean(root);
   const { summary } = validateSummary(root, id);
+  const binding = inside(root, ".planning/agt/workstreams.json");
+  if (existsSync(binding)) {
+    const config = readJson(binding);
+    for (const inherited of config.inherited_workstreams || []) {
+      const status = inheritedWorkstreamStatus(root, config, inherited, "HEAD");
+      assert(status.integrated, `Inherited workstream changed since adoption: ${inherited.id}`);
+    }
+  }
   assert(summary.facts?.status === "accepted" || summary.facts?.status === "complete", "Final acceptance is required before squash preparation");
   assertReviewedCode(root, summary);
   for (const child of git(root, ["for-each-ref", "--format=%(refname:short)", `refs/heads/agt/${id}/`]).split("\n").filter(Boolean)) {
@@ -318,6 +345,7 @@ export function prepare(root, { id, maintenance }) {
   write(inside(path, `${archiveRoot(id)}/summary.json`), final);
   write(inside(path, `${archiveRoot(id)}/integration.json`), { schema_version: 2, id, method: "squash", source_branch: source, source_commit: sourceCommit, target_branch: target, target_base: targetCommit });
   git(path, ["add", "--", `${archiveRoot(id)}/summary.json`, `${archiveRoot(id)}/integration.json`]);
+  assertFinalPlanningScope(path, id, targetCommit, root, maintenance);
   git(path, ["commit", "-m", `deliver: ${id}`]);
   const job = { schema_version: 2, id, source_branch: source, source_commit: sourceCommit, target_branch: target, target_commit: targetCommit, worktree: path, candidate_commit: head(path), status: "prepared", maintenance: maintenance || null };
   // Check candidate contents against the exact target. Scoped remediation is checked on the source branch above.

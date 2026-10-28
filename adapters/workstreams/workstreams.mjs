@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync,
 import { dirname, join, resolve } from "node:path";
 import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
-import { CONFIG, LOCAL_CONFIG, assert, git, yaml, readYaml, readJson, inside, safePath, streamRoot, parentId, validateConfig, artifacts, worktrees, resolveContext } from "./context.mjs";
+import { CONFIG, LOCAL_CONFIG, assert, git, yaml, readYaml, readJson, inside, safePath, streamRoot, parentId, validateConfig, artifacts, worktrees, resolveContext, inheritedWorkstreamStatus } from "./context.mjs";
 
 import * as delivery from "../delivery/delivery.mjs";
 
@@ -104,6 +104,17 @@ function scopedText(r, c, m, path) {
   return Buffer.from(files[path], "base64").toString();
 }
 function metadata(r, config, id) {
+  // A caller in the original worktree still carries its old binding. Honor the
+  // explicit retirement recorded by the new parent without editing that worktree.
+  if (config.schema_version !== 2) {
+    const modernTarget = `milestone/${config.milestone}`;
+    const adopted = configAt(r, `refs/heads/${modernTarget}`);
+    if (adopted) {
+      const current = JSON.parse(adopted);
+      assert(!(current.schema_version === 2 && current.inherited_workstreams?.some(item => item.id === id)), "Inherited workstream is retired and read-only; use its new parent and a new child ID");
+    }
+  }
+  assert(!config.inherited_workstreams?.some(item => item.id === id), "Inherited workstream is retired and read-only; use a new child ID");
   const root = streamRoot(parentId(config), id), branch = `agt/${parentId(config)}/${id}`;
   const m = { id, branch };
   const value = JSON.parse(localMode(config) ? scopedText(r, config, m, `${root}/workstream.json`) : at(r.root, `refs/heads/${branch}`, `${root}/workstream.json`));
@@ -160,6 +171,7 @@ function reservedNames(r) {
     const projectRegistry = inside(wt.path, ".planning/agt/agents.yaml");
     if (existsSync(projectRegistry)) add(readFileSync(projectRegistry, "utf8"), ".planning/agt/agents.yaml");
     if (!wt.branch?.startsWith("agt/")) continue;
+    if (cfg.inherited_workstreams?.some(item => wt.branch === `agt/${parentId(cfg)}/${item.id}`)) continue;
     const c = resolveContext(wt.path);
     if (c.mode === "workstream") add(readFileSync(inside(wt.path, c.agents), "utf8"), c.agents);
   }
@@ -171,7 +183,7 @@ function validateName(name, prefix) {
   assert(r.status === 0, r.stderr || "Invalid semantic name");
 }
 
-export function enable(project, { profile, target, milestone, quick, approval }) {
+export function enable(project, { profile, target, milestone, quick, approval, inherited_workstreams = [] }) {
   return operation(project, r => {
     assert(approval?.trim(), "Explicit adoption approval/source is required");
     assert(!existsSync(inside(r.root, CONFIG)) && !existsSync(inside(r.root, LOCAL_CONFIG)), "Workstreams already configured; never overwrite adoption");
@@ -186,6 +198,7 @@ export function enable(project, { profile, target, milestone, quick, approval })
     assert(lockedProfile?.id === p.id && lockedProfile?.version === p.version && frameworkRevision, "Manifest must explicitly lock this Profile and framework revision before enabling");
     assert(!(milestone && quick) && (milestone || quick), "Choose one milestone or Quick parent");
     const adopted = delivery.policy(r.root), modern = adopted?.schema_version === 2;
+    assert(Array.isArray(inherited_workstreams) && (modern || inherited_workstreams.length === 0), "Inherited workstreams require branch planning adoption");
     if (!quick) assert(readYaml(inside(r.root, ".planning/workflow/state.yaml")).milestone === milestone, "Milestone differs from project state");
     if (quick) {
       assert(modern, "Quick workstreams require branch planning adoption");
@@ -195,8 +208,12 @@ export function enable(project, { profile, target, milestone, quick, approval })
     if (modern) delivery.assertWritable(r.root, [`.planning/${quick ? "quick" : "milestones"}/${quick || milestone}`]);
     const config = validateConfig({ schema_version: modern ? 2 : 1,
       ...(adopted ? { planning_storage: modern ? "branch" : "local" } : {}), mode: "workstreams", milestone: milestone || null, target,
-      ...(modern ? { parent: { kind: quick ? "quick" : "milestone", id: quick || milestone, branch: target, base_commit: head(r.root) } } : {}),
+      ...(modern ? { parent: { kind: quick ? "quick" : "milestone", id: quick || milestone, branch: target, base_commit: head(r.root) }, inherited_workstreams } : {}),
       profile: p, framework_revision: frameworkRevision, approval, adopted_at: now() });
+    for (const item of config.inherited_workstreams || []) {
+      const status = inheritedWorkstreamStatus(r.root, config, item, "HEAD");
+      assert(status.integrated, `Cannot inherit ${item.id}: ${status.error}`);
+    }
     const destination = adopted && !modern ? LOCAL_CONFIG : CONFIG;
     if (adopted && !modern) {
       assert(p.workflow.delivery?.supported === true, "Profile must support task delivery");
@@ -213,10 +230,16 @@ export function create(project, { id, title, scope, path, agent, dependencies = 
   return operation(project, r => {
     const c = configFor(r), root = streamRoot(parentId(c), id), branch = `agt/${parentId(c)}/${id}`;
     assert(title?.trim() && scope?.trim(), "Title and confirmed scope are required");
+    assert(!c.inherited_workstreams?.some(item => item.id === id), "Inherited workstream IDs are retired; choose a new ID");
     assert(Array.isArray(dependencies) && new Set(dependencies).size === dependencies.length, "Dependencies must be a unique array of workstream IDs");
     assert(git(r.root, ["show-ref", "--verify", `refs/heads/${branch}`], true) === null, "Workstream branch already exists; resume it");
     assert(!at(r.root, `refs/heads/${c.target}`, `${root}/workstream.json`, true), "Workstream ID already integrated; choose a new ID");
-    for (const dep of dependencies) { assert(dep !== id, "Cannot depend on itself"); metadata(r, c, dep); }
+    for (const dep of dependencies) {
+      assert(dep !== id, "Cannot depend on itself");
+      const inherited = c.inherited_workstreams?.find(item => item.id === dep);
+      if (inherited) assert(inheritedWorkstreamStatus(r.root, c, inherited).integrated, `Inherited dependency changed: ${dep}`);
+      else metadata(r, c, dep);
+    }
     const first = c.profile.workflow.stages.find(s => s.id === c.profile.workflow.initial_stage);
     const role = first.allowed_roles[0], definition = c.profile.roles.find(d => d.id === role);
     validateName(agent, definition.display_name_prefix);
@@ -241,8 +264,21 @@ export function create(project, { id, title, scope, path, agent, dependencies = 
 
 export function list(project) {
   const r = repo(project), c = configFor(r), trees = worktrees(r.root);
-  return git(r.root, ["for-each-ref", "--format=%(refname:short)", `refs/heads/agt/${parentId(c)}/`]).split("\n").filter(Boolean).map(branch => {
-    const id = branch.split("/").at(-1), m = metadata(r, c, id), wt = trees.find(w => w.branch === branch);
+  const branches = new Set(git(r.root, ["for-each-ref", "--format=%(refname:short)", `refs/heads/agt/${parentId(c)}/`]).split("\n").filter(Boolean));
+  for (const item of c.inherited_workstreams || []) branches.add(`agt/${parentId(c)}/${item.id}`);
+  return [...branches].sort().map(branch => {
+    const id = branch.split("/").at(-1), wt = trees.find(w => w.branch === branch);
+    const inherited = c.inherited_workstreams?.find(item => item.id === id);
+    if (inherited) {
+      const status = inheritedWorkstreamStatus(r.root, c, inherited);
+      return { id, title: id, branch, worktree: wt?.path || null, historical: true, retired: true,
+        stage: "completed", status: status.integrated ? "integrated_historical" : "historical_source_changed", active_agent: null,
+        pending_user_decisions: [], open_change_requests: [], dirty: wt ? Boolean(dirty(wt.path)) : false, dependencies: [], shared_changes: [],
+        accepted: null, acceptance_kind: "historical_integration_not_reverified", accepted_source_commit: inherited.source_commit,
+        integrated: status.integrated, integration_error: status.error, observed_source: status.observed_source,
+        integration: { source_commit: inherited.source_commit, integration_commit: inherited.integration_commit, historical: true }, session: null };
+    }
+    const m = metadata(r, c, id);
     const statePath = `${m.root}/workflow/state.yaml`, committed = yaml(localMode(c) ? Buffer.from(localFiles(r, c, id)[statePath], "base64").toString() : at(r.root, `refs/heads/${branch}`, statePath));
     const current = wt ? readYaml(inside(wt.path, statePath)) : committed;
     const receipt = at(r.root, `refs/heads/${branch}`, recordPath(c, m, "acceptance"), true);
@@ -431,6 +467,12 @@ function checkScope(r, m, source) {
 function checkDependencies(r, c, m, source, target) {
   assert(Array.isArray(m.dependencies) && Array.isArray(m.shared_changes), "Dependencies/shared_changes must be arrays");
   for (const id of m.dependencies) {
+    const inherited = c.inherited_workstreams?.find(item => item.id === id);
+    if (inherited) {
+      assert(inheritedWorkstreamStatus(r.root, c, inherited, target).integrated, `Inherited dependency changed: ${id}`);
+      assert(ancestor(r.root, inherited.integration_commit, source), `Synchronize inherited dependency and revalidate: ${id}`);
+      continue;
+    }
     const dep = metadata(r, c, id), raw = at(r.root, target, recordPath(c, dep, "integration"), true);
     assert(raw, `Dependency not integrated: ${id}`);
     const receipt = JSON.parse(raw);
