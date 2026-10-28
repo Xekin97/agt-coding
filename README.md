@@ -36,7 +36,7 @@ my-product-workspace/
 
 同一角色类别可以由基座维护多个变体，例如 `product/to-b` 和 `product/to-c`。产品选择已有变体，但不在产品仓库内定制或复制角色 Prompt；通用改进应回到基座演进。
 
-当前提供 `consumer-ai-web@2.1.0`，适用于面向公众消费者、以 AI 内容生成或转换为核心价值，并需要账号、权益分组、用量控制和完整前后端交付的响应式 Web 产品。初始化角色仍必须先完成问卷、展示匹配与不匹配项，并等待用户明确选择。
+当前提供 `consumer-ai-web@3.0.0`，适用于面向公众消费者、以 AI 内容生成或转换为核心价值，并需要账号、权益分组、用量控制和完整前后端交付的响应式 Web 产品。初始化角色仍必须先完成问卷、展示匹配与不匹配项，并等待用户明确选择。
 
 ### 专业角色直达用户
 
@@ -64,7 +64,7 @@ my-product-workspace/
 
 ## 多窗口需求并行
 
-新增 `$agt-workstream`：同一里程碑内，每个需求拥有独立分支、worktree、阶段状态、角色和专业产物。A 窗口可以做登录优化的设计，B 窗口同时实现学习报告。
+新增 `$agt-workstream`：同一里程碑或 Quick 父任务内，每个需求拥有独立分支、worktree、阶段状态、角色和专业产物。A 窗口可以做登录优化的设计，B 窗口同时实现学习报告。
 
 没有固定主窗口。任意产品 worktree 都能查看、恢复或发起集成；合并在临时 worktree 验证，通过后才更新指定集成分支。写入会话租约和共享集成锁避免多个遵守协议的窗口竞争同一需求或目标。关闭窗口后依据 Git 与文件恢复。
 
@@ -75,7 +75,7 @@ $agt-workstream 查看
 $agt-workstream 集成 登录优化
 ```
 
-专业工作继续使用原有 agt skills 和阶段守门器。旧项目默认保留单流程；显式采用 `consumer-ai-web@2.1.0` 的可选能力后启用。详见[工作流协议与命令](core/workstreams.md)和[skill 入口](.agents/skills/agt-workstream/SKILL.md)。脚本入口：
+专业工作继续使用原有 agt skills 和阶段守门器。旧项目默认保留单流程；显式采用兼容 Profile（2.1.0 起）的可选能力后启用。详见[工作流协议与命令](core/workstreams.md)和[skill 入口](.agents/skills/agt-workstream/SKILL.md)。脚本入口：
 
 ```bash
 node adapters/workstreams/agt-workstream.mjs --help
@@ -90,7 +90,7 @@ node --test tests/workstreams.test.mjs
 
 Quick 按影响组织产品、设计、技术、QA 和交接责任项：变更写回对应正式文档，任务记录保存责任映射与真实执行回执。上游未确认、正文未回写或版本已变化会阻止下游验收/任务收尾。支持已授权 agent 接手任务包，也可按责任串行执行；串行处理不能冒称独立验收。详见[文档责任](core/quick-tasks.md#变更回落与文档责任)。
 
-收尾必须完成本批文档的语义整理并登记 `compact`，随后 `finish` 检查有效验收、正文回落、整理回执和可追溯原件。`show/resume` 默认精简，历史用 `--history` 按需展开；原始失败与测试证据保留。独立接续未运行时如实记录 NOT_RUN。详见[上下文收尾](core/quick-tasks.md#上下文收尾与归档)。
+收尾必须完成本批文档的语义整理并登记 `compact`，随后 `finish` 检查有效验收、正文增量和整理回执。`show/resume` 默认精简；已修复且验证通过问题的过程记录、旧失败附件和废弃稿清除，必要回归测试保留。独立接续未运行时如实记录 NOT_RUN。详见[上下文收尾](core/quick-tasks.md#上下文收尾与归档)。
 
 ```text
 $agt-quick 修复设置页保存后提示未更新的问题
@@ -99,7 +99,7 @@ $agt-quick status Q001-fix-settings-feedback
 $agt-quick resume Q001-fix-settings-feedback
 ```
 
-范围清楚就直接执行，出现影响验收的重要新决定再澄清；多需求完整交付仍使用原需求/里程碑流程。详见[粒度与执行协议](core/quick-tasks.md)、[Skill](.agents/skills/agt-quick/SKILL.md)及[任务模板](templates/quick-task.json)。Profile 2.0/2.1 可显式增量采用，不要求切换到并行模式；当前 Quick 工具暂不在启用 workstreams 的产品写任务。命令入口 `node adapters/quick/agt-quick.mjs --help`，行为测试 `node --test tests/quick-tasks.test.mjs`。
+范围清楚就直接执行，出现影响验收的重要新决定再澄清；多需求完整交付仍使用原需求/里程碑流程。详见[粒度与执行协议](core/quick-tasks.md)、[Skill](.agents/skills/agt-quick/SKILL.md)及[任务模板](templates/quick-task.json)。旧锁定项目显式迁移后采用 3.0 分支交付；Quick 可以作为 workstream 父任务，子需求只集成回所属 Quick。命令入口 `node adapters/quick/agt-quick.mjs --help`，行为测试 `node --test tests/quick-tasks.test.mjs`。
 
 ### 里程碑交付
 
@@ -128,7 +128,7 @@ UI/UX 同时负责设计质量和产物对后续 agent 的可用性：从用户�
 
 浏览器检查先在现有矩阵选择冒烟、需求验收、缺陷复验或有界探索，明确条目、充分证据与软预算。结构化断言、必要视觉比较和实际动效检查各自证明适用结果；返工只重验问题及受影响使用处。保存截图与送模图片分开计量，证据充分后及时收尾。具体执行见[检查与证据](core/design-delivery.md#verification)，不新增测试平台、必需产物或审批阶段；规则接入不等于已证明 token 节省。
 
-用户要求设计整改或重构时，按本轮目标重做受影响结构并同步更新原型、文案、样式、资源及交接，不默认在旧设计上增量修补。旧稿保留供追溯，失效条目退出当前依据；新稿批准范围单独记录，下游重新核对版本。规则接入不等于实际还原率已验证，首次试点应记录设计质量、首次交付偏差和 QA 往返。
+用户要求设计整改或重构时，按本轮目标重做受影响结构并同步更新原型、文案、样式、资源及交接，不默认在旧设计上增量修补。废弃稿在有效内容收敛后清除，封闭前序里程碑作为只读继承基线；新稿批准范围单独记录，下游重新核对版本。规则接入不等于实际还原率已验证，首次试点应记录设计质量、首次交付偏差和 QA 往返。
 
 2.0.0 新增两项必需设计产物，属于交付契约变更；既有产品按锁定的基座 revision/Profile 继续运行，升级差异与采用范围见[Profile 升级说明](profiles/README.md#交付契约与升级)。
 
@@ -136,27 +136,29 @@ UI/UX 同时负责设计质量和产物对后续 agent 的可用性：从用户�
 
 - 所有角色遵守[禁止自发性过度设计](core/role-contract.md#no-speculative-overengineering)：只围绕已确认需求与有证据的实际问题设计、开发和验证；不以无依据的“完善”为由扩展范围，额外建设先获用户明确同意。
 - 计划相关角色在关键解释有歧义或准备引入新约束时，先说明理解、非目标和必要正反例，等用户确认后再展开依赖它的方案。用户已明确的要求直接记录，不反复索取相同批准；用户纠正会撤销旧推断及其下游前提。
-- 每轮实质修订收敛后、交接前整理本角色文档：更新现有主文档，合并重复说明，当前交接只链接真源，不复制整段历史。不改变Profile必需路径，保留审批、失败事实及正式证据的可恢复原件；测试截图按[用途与保留规则](core/document-maintenance.md#evidence-retention)处理，临时输出默认不提交，历史图片可凭版本索引移出工作树。
+- 每轮实质修订收敛后、交接前整理本角色文档：更新现有主文档，合并重复说明，当前交接只链接真源，不复制整段历史。区分阶段必需产物与最终有效内容，保留当前接受结论及必要证据，清除已修复问题的过程资料；测试截图按[用途与保留规则](core/document-maintenance.md#evidence-retention)处理，不为无效资料打包或建立恢复索引。
 
 具体边界集中维护在[需求确认闭环](core/role-contract.md#requirement-confirmation)和[文档整理](core/role-contract.md#document-maintenance)，各Skill在计划与交接环节引用，避免维护多套相同规则。确认来源和整理结果直接使用现有决策/交接模板，不新增审批阶段或成套文件。这些是角色执行规则，不是后台自动归档服务。
 
-### 小入口、按需读取、验证后归档
+### 小入口、继承与语义整理
 
-整理服务于后续 agent 的开发：保留当前有效知识、可复用验证和有据的失败经验，按需追溯历史。产品模型评测与开发 agent 工作流实验分开记录；以新会话能否正确接续任务判断整理效果。具体规则见[整理目的与调研依据](core/document-maintenance.md#0-以接续开发的-agent-为使用者)。
+整理保留当前有效知识、设计和测试，以及明确的未完成事项。M002 继承已完成 M001，M003 继承已完成 M002；每轮维护自身增量及替代关系，不复制前序资料或重新汇编整个项目。
 
-[读取规则](core/role-contract.md#context-reading)要求先读当前状态、交接和适用约束，再按任务 ID 读取相关计划、契约与依赖；模板用到时读取，历史按需检索。状态只维护当前流程和有效来源指针，详细任务留在原有计划/CR，不复制一套 STATE/ROADMAP。已有产品字段的调整须先检查消费者和冻结引用，基座更新不会自动重写产品状态。
+[读取规则](core/role-contract.md#context-reading)要求先读当前状态、交接和适用基线，再定向读相关正文。状态只维护当前流程和有效入口，不另建第二套台账。各角色整理本轮内容，交付负责人复核跨角色一致性；详见[整理协议](core/document-maintenance.md)。
 
-阶段验证完成、入口超预算或整理历史时，才读取[整理与归档协议](core/document-maintenance.md)。按事项 ID 保留未完成目标、验收、约束原因与证据；已实现未验证不能写成完成，归档位置不改变事项状态。首次试点或入口大改后做新会话交接测试，条件不足就标未执行。正式原件保持可恢复，临时图片不默认永久保留；整理不自动提交或推送 Git。
+“压缩归档”是语义收敛和删除无效内容，不是 tar.gz/zip。已修复且验证通过问题的排查记录、过期证据、废弃设计和重复交接清除；工程回归测试、当前必要证据和未完成事项保留。完成验收、文档处理及交付后里程碑封闭只读；历史存量未清理问题只在明确的一次性整改范围内处理，整改后重新封闭。
 
-用户可直接要求“整理本阶段的测试与修改记录”或“补已完成里程碑的上下文收尾”。按[执行编排](core/document-maintenance.md#6-上下文压缩的执行编排)确定责任范围，先收敛专业正文及变更/验证结论，再汇合接续入口；单会话可按授权分区串行维护。已完成里程碑遵守[文档维护边界](core/workflow-control.md#context-maintenance)，保持原终态，不为整理重开开发阶段。结果分别报告内容收敛、静态完整性和独立接续效果；文件打包不算上下文压缩成果。
+首次试点或入口大改可做独立接续检查，未执行标 NOT_RUN。`validators/measure-context.mjs` 可对显式文件清单作只读字符/字节计量，不递归展开链接；没有实际 usage 就不能宣称 token/费用节省，文件数量也不是整理质量。
 
-产品 planning 的试点软预算为启动 2–3k tokens、单任务累计 8k（含启动），基座契约、代码和工具输出另外计量；必要约束不能为了达标删除。无 tokenizer 时只记录字符数，tokens 标 unknown。用显式文件清单作只读计量，例如在基座目录执行：
+## 按分支交付与里程碑封闭
 
-```bash
-node validators/measure-context.mjs -- ../project/.planning/workflow/state.yaml ../project/.planning/milestones/M001/handoffs/product.md
-```
+`consumer-ai-web@3.0.0` 使用 `delivery/base` 与 `$agt-deliver` 组织任务收尾。采用 delivery schema 2、`planning_storage: branch`：代码与 `.planning` 在开发分支正常提交，临时输出忽略。里程碑从 main 建立 `milestone/<ID>`，独立 Quick 建立 `quick/<ID>-<slug>`；workstream 从对应父分支切出并普通合并回父分支，父任务最终 squash 合入 main。
 
-按实际产品路径替换示例，分别测启动、任务补充、基座与定向历史；部分章节读取应另记录实际片段范围，不能拿整份文件计量当片段用量。工具不递归、不展开文档链接，按真实路径去重，输出 Unicode 字符数/UTF-8 字节数。它不测模型账单或实际累计输入，也不提供强制读取白名单；这些规则仍需角色执行及交接验证。
+合并前依次完成：汇合交付范围 → 固定候选 → 各角色收敛正文并删除无效资料 → QA 核对当前版本 → 交付负责人检查 → squash 交付并封闭。只限制本次候选，其他独立分支可以继续。main/候选变化后重新核对相关验证。
+
+工具保存可读完成摘要与源/交付提交关系，不生成压缩包，也不要求废弃日志永久存在。阶段 `required_artifacts` 与最终 `final_artifacts` 分开，过期交接可清除。已封闭目录只读，Quick 的变化写入自身增量，不回写前序里程碑。
+
+详见[交付协议](core/delivery.md)、[交付角色](roles/delivery/base.md)及[Skill](.agents/skills/agt-deliver/SKILL.md)。命令 `node adapters/delivery/agt-delivery.mjs --help`；提交前检查索引，最终候选检查封闭范围和版本。这是显式工具检查，不是自动安装的 Git hook。旧锁定项目显式迁移后采用，不自动推送、发布或部署。
 
 ## 已有角色与 Codex Skills
 
@@ -175,6 +177,7 @@ node validators/measure-context.mjs -- ../project/.planning/workflow/state.yaml 
 | `$agt-workstream` | 多窗口需求工作流：创建、查看、恢复、集成与清理 |
 | `$agt-quick` | 有界小任务：短计划、实施、针对性验证、查看与恢复；不重开里程碑 |
 | `$agt-verify-milestone` | 高级产品质量专家：验证 UI、API、集成、E2E 与用户验收 |
+| `$agt-deliver` | 交付负责人：资料语义复核、封闭、提交/合并、changelog与部署策略 |
 | `$agt-stage-gate` | 阶段守门专家：显式激活角色、验收、迁移、恢复或回溯 |
 
 实现角色负责单元测试、lint、格式化、类型检查和适用的模块集成检查。验证阶段检查这些证据，并聚焦用户可观察行为、契约、集成和验收，不机械重复开发期检查。
@@ -183,7 +186,9 @@ node validators/measure-context.mjs -- ../project/.planning/workflow/state.yaml 
 
 模型按“阶段默认＋任务覆盖＋风险下限＋失败升级”选择，不将每个角色永久绑定一个模型：需求/架构用GPT-6 Astra / high，计划/设计判断/独立验收用GPT-6.1 Sol / high，明确编码/单测/文档用GPT-6 Luna / medium，事务性守门检查用GPT-6.1 Sol / medium，纯test/lint/build直接交工具。
 
-已提供[中央策略](models/codex-balanced.json)、[调度契约](core/model-routing.md)、[任务包](templates/model-task.json)和[可执行Codex适配器](adapters/codex/README.md)。它查询真实模型能力、生成不可覆盖的版本化锁、解析任务，并通过显式model/effort启动新的Codex CLI会话。默认dry-run，不热切换已打开的App聊天，不修改全局Codex配置，也不自动升级已有产品。
+已提供[中央策略](models/codex-balanced.json)、[调度契约](core/model-routing.md)、[任务包](templates/model-task.json)和[可执行Codex适配器](adapters/codex/README.md)。它查询真实模型能力、生成不可覆盖的版本化锁，并按任务包分派到原生子代理或新的Codex CLI会话。Quick 使用任务级范围，支持里程碑已完成、无活动角色的情况。尝试记录累计有证据的实现失败，保存运行时观测和可用的会话 usage；exit 0 不等于验收通过。CLI launch 默认dry-run，不热切换已打开的App聊天，不修改全局Codex配置，也不自动升级已有产品。
+
+AGT 语义整理按职责分配：明确整理用 Luna，复杂保留规则和语义复核用 Sol，文件、hash 与链接检查交工具。`compact` 登记并核验已完成的整理，不是聊天压缩或自动写文档命令。
 
 每次启动检测Codex版本和可用模型变化；新增模型只生成更新建议，模型/effort失效明确阻塞。确认新映射后生成新锁，保留旧锁。详见适配器文档中的命令与限制。
 
@@ -250,10 +255,10 @@ agt-coding/
 ./validators/validate-agent-name.sh frontend-bob
 ```
 
-合法前缀为 `bootstrap`、`gatekeeper`、`product`、`designer`、`dba`、`backend`、`frontend` 和 `qa`。人名部分使用 2～16 位小写字母，并且不能是哈希式或无语义占位名称。
+合法前缀为 `bootstrap`、`gatekeeper`、`product`、`designer`、`dba`、`backend`、`frontend`、`qa` 和 `delivery`。人名部分使用 2～16 位小写字母，并且不能是哈希式或无语义占位名称。
 
 ## 基座升级原则
 
 产品使用的基座版本必须在产品仓库中锁定。升级需要先比较 Profile、角色、模板和状态结构的变化，再由用户决定是否采用。
 
-基座升级本身不授权批量重写已有产品产物、删除历史或切换阶段。采用更新后，各角色可在当前授权范围内按共同契约整理自己维护的工作文档；冻结证据和审批历史仍保留。整理冗余不等于修改需求、删除数据或引入旧版兼容；这些事项继续按明确授权处理。
+基座升级本身不授权批量重写已有产品产物、删除历史或切换阶段。采用更新后，各角色在当前任务范围整理自己维护的正文；已封闭里程碑只读，历史存量整改需有明确的一次性范围。整理冗余不等于修改需求、删除数据或引入旧版兼容；这些事项继续按明确授权处理。

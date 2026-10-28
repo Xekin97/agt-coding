@@ -7,7 +7,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 agent_name="$1"
-name_pattern='^(bootstrap|gatekeeper|product|designer|dba|backend|frontend|qa)-[a-z]{2,16}$'
+name_pattern='^(bootstrap|gatekeeper|product|designer|dba|backend|frontend|qa|delivery)-[a-z]{2,16}$'
 
 if [[ ! "$agent_name" =~ $name_pattern ]]; then
   echo "invalid agent name: $agent_name" >&2

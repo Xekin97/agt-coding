@@ -1,6 +1,6 @@
 schema_version: 1
 id: "consumer-ai-web"
-version: "2.1.0"
+version: "3.0.0"
 status: "available"
 name: "Consumer AI Web"
 summary: >-
@@ -95,6 +95,12 @@ roles:
     sources:
       - "roles/quality/base.md"
     skill: ".agents/skills/agt-verify-milestone/SKILL.md"
+  - id: "delivery/base"
+    kind: "delivery"
+    display_name_prefix: "delivery"
+    sources:
+      - "roles/delivery/base.md"
+    skill: ".agents/skills/agt-deliver/SKILL.md"
   - id: "gatekeeper"
     kind: "control"
     display_name_prefix: "gatekeeper"
@@ -103,14 +109,46 @@ roles:
     skill: ".agents/skills/agt-stage-gate/SKILL.md"
 
 workflow:
+  delivery:
+    supported: true
+    opt_in: true
+    role: "delivery/base"
+    planning_storage: "branch"
+    policy_schema_version: 2
+    final_merge: "squash"
+    closed_milestones: "read-only"
   workstreams:
     supported: true
     opt_in: true
     artifact_root: ".planning/milestones/{milestone}/workstreams/{workstream}"
+    parent_kinds: ["milestone", "quick"]
+    quick_artifact_root: ".planning/quick/{quick}/workstreams/{workstream}"
   milestone_pattern: "^M[0-9]{3}$"
   initial_stage: "product-planning"
   terminal_stage: "milestone-complete"
   control_role: "gatekeeper"
+  # Execution-stage handoffs are not permanent retention requirements.
+  final_artifacts:
+    - ".planning/milestones/{milestone}/product/overview.md"
+    - ".planning/milestones/{milestone}/product/data-assets.md"
+    - ".planning/milestones/{milestone}/product/abilities.md"
+    - ".planning/milestones/{milestone}/product/pages/index.md"
+    - ".planning/milestones/{milestone}/product/ai-behavior.md"
+    - ".planning/milestones/{milestone}/design/design-spec.md"
+    - ".planning/milestones/{milestone}/design/copy.json"
+    - ".planning/milestones/{milestone}/design/theme.css"
+    - ".planning/milestones/{milestone}/design/prototype/index.html"
+    - ".planning/milestones/{milestone}/design/interactions.md"
+    - ".planning/milestones/{milestone}/design/responsive-accessibility.md"
+    - ".planning/milestones/{milestone}/technical/database.md"
+    - ".planning/milestones/{milestone}/technical/backend.md"
+    - ".planning/milestones/{milestone}/technical/api/index.md"
+    - ".planning/milestones/{milestone}/technical/frontend.md"
+    - ".planning/milestones/{milestone}/technical/ai-integration.md"
+    - ".planning/milestones/{milestone}/verification/coverage-matrix.md"
+    - ".planning/milestones/{milestone}/verification/report.md"
+    - ".planning/milestones/{milestone}/verification/ai-evaluation.md"
+    - ".planning/milestones/{milestone}/verification/uat.md"
   stages:
     - id: "product-planning"
       completion_policy: "single-role"

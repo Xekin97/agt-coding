@@ -47,6 +47,6 @@ try {
     else throw Error(`Unknown command: ${command}`);
     if (!["list", "show", "resume", "validate", "dispatch"].includes(command)) result = quick.show(v.project, result.id);
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-    if (command === "validate" && (!["active", "complete"].includes(result.status) || !result.validation_now.every(x => x.pass) || !result.documents_now.every(x => x.pass) || !result.compaction_now.pass)) process.exitCode = 1;
+    if (command === "validate" && (!["active", "complete"].includes(result.status) || !result.validation_now.every(x => x.pass) || !result.documents_now.every(x => x.pass) || !result.compaction_now.pass || result.delivery_now?.pass === false)) process.exitCode = 1;
   }
 } catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1; }

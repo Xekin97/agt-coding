@@ -1,5 +1,6 @@
 {
   "objective": "实现已批准任务中的一个明确变更",
+  "task_id": "TASK-001",
   "inputs": [
     ".planning/milestones/M001/technical/frontend.md",
     ".planning/milestones/M001/design/interactions.md"
@@ -10,10 +11,11 @@
   ],
   "acceptance": [
     "逐项满足关联验收条件",
-    "执行相关测试并保留失败与通过证据",
+    "执行相关测试，保留最终结果与未解决问题所需证据，清除已修复问题的过程记录",
     "不修改API契约、批准设计或工作流状态"
   ],
   "risk": "normal",
+  "risk_reason": "基于任务证据说明风险等级与风险下限理由",
   "prior_attempts": [],
   "report": [
     "changed_paths",

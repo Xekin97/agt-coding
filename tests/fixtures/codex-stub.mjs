@@ -6,6 +6,10 @@ if (process.argv[2] === "--version") { console.log("codex-cli fixture"); process
 if (process.argv[2] === "exec") {
  let input = ""; for await (const chunk of process.stdin) input += chunk;
  writeFileSync(process.env.AGT_TEST_OUTPUT, JSON.stringify({ args: process.argv.slice(2), input }));
+ if (process.argv.includes("--json")) {
+  console.log(JSON.stringify({type:"thread.started",thread_id:"fixture-runtime"}));
+  console.log(JSON.stringify({type:"turn.completed",usage:{input_tokens:100,cached_input_tokens:60,output_tokens:20}}));
+ }
  process.exit(Number(process.env.AGT_TEST_EXIT || 0));
 }
 if (process.argv[2] !== "app-server") process.exit(9);

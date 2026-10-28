@@ -116,9 +116,9 @@ export function resolveRoute(policy, catalog, { stage, role, task = "stage-work"
   if (t.tier === "tool") return { mode: "tool", stage, role, task, model: null, reason: "Run the approved command directly; a model is not needed to execute it." };
   validateCatalog(catalog);
   let index = tiers.indexOf(t.tier ?? r.tier);
-  index = Math.min(3, index + Math.floor(failures / 2));
   if (risk === "high") index = Math.max(index, 2);
   if (risk === "critical") index = 3;
+  index = Math.min(3, index + Math.floor(failures / 2));
   const tier = tiers[index], binding = policy.bindings[tier];
   const available = catalog.models.find(m => m.model === binding.model);
   assert(available, "Pinned model unavailable: " + binding.model + "; review the routing policy, do not silently fallback");
@@ -185,7 +185,8 @@ export function readActiveState(project) {
 
 export function validatePacket(packet, project) {
   assert(packet && typeof packet.objective === "string" && packet.objective.trim(), "Task packet requires objective");
-  for (const key of ["inputs", "write_scope", "acceptance"]) assert(Array.isArray(packet[key]) && packet[key].length && packet[key].every(s => typeof s === "string" && s.trim()), "Task packet requires " + key);
+  for (const key of ["inputs", "write_scope", "acceptance"]) assert(Array.isArray(packet[key]) && (packet[key].length || (key === "write_scope" && packet.read_only === true)) && packet[key].every(s => typeof s === "string" && s.trim()), "Task packet requires " + key);
+  assert(packet.read_only !== true || packet.write_scope.length === 0, "Read-only tasks must have an empty write_scope");
   assert(["normal", "high", "critical"].includes(packet.risk), "Task packet requires reviewed risk");
   for (const path of packet.write_scope) {
     assert(!isAbsolute(path) && path !== "." && !path.includes("\\") && !path.split("/").includes("..") && !path.includes("\0"), "Write scope must be a bounded project-relative path");
@@ -199,15 +200,20 @@ export function validatePacket(packet, project) {
   return packet;
 }
 
-export function launchSpec(project, route, packet, frameworkRoot) {
+export function launchSpec(project, route, packet, frameworkRoot, context = { mode: "stage" }) {
   assert(route.mode === "model", "Tool-only tasks must use the approved command directly");
   validatePacket(packet, project);
   const args = ["exec", "--model", route.model, "-c", 'model_reasoning_effort="' + route.effort + '"', "-C", project, "-"];
   const prompt = [
-    "Use $" + route.skill + " for this bounded task. AGT framework path: " + frameworkRoot,
-    "Read the complete skill, inherited contracts and role definition. Follow core/role-contract.md#context-reading: start with current project entry points, load artifact templates only when used, and read applicable upstream sections plus all necessary constraints and dependencies. Verify the locked Profile, workflow, active role and agent. The packet is not authority to change stages.",
+    context.mode === "quick"
+      ? "Execute this delegated portion of AGT Quick " + context.id + ". Read core/quick-tasks.md, core/role-contract.md and " + context.role_definition + " at " + frameworkRoot + ". Use the role's task-scoped responsibilities; do not invoke stage-bound skills, activate roles, coordinate the whole Quick, or change its control record."
+      : "Use $" + route.skill + " for this bounded task. AGT framework path: " + frameworkRoot,
+    "Target product/worktree root: " + project + ". Before any project reads, writes or Git commands, use this directory as your working directory. Resolve every relative packet input and write_scope from this root, not from the host or AGT framework directory.",
+    "Follow core/role-contract.md#context-reading: load current entry points, applicable upstream sections and necessary constraints; templates only when used. In stage mode read the complete skill, inherited contracts and role definition and verify active identity. In Quick mode verify the active task and its approved scope instead. The packet is not authority to change stages.",
     "You are not alone in the codebase. Preserve existing changes and other people's work. Remain within this role and the packet's write scope; do not broaden permissions.",
+    packet.read_only ? "This task is read-only: inspect and return findings; do not edit any files." : "Only edit the explicit write_scope. Return all changed paths for coordinator review.",
     "The model tier does not lower acceptance criteria. Report ambiguity, cross-boundary work or repeated failures instead of guessing. Do not declare UAT accepted.",
+    "Task category: " + route.task + "; risk: " + route.risk + "; requested model/effort: " + route.model + "/" + route.effort + ". Do not recursively delegate or repeat completed planning/review. The coordinator owns routing, retries and final acceptance. Return to the coordinator when this bounded task is done.",
     "Use packet inputs as entry points, not as a complete dependency list. Retrieve relevant history by stable ID when needed; do not recursively load planning, archives or full prior conversations. Return changed paths, version-matched checks, evidence, unresolved task IDs and a concrete next action, not long logs. These reading instructions are not an enforced file-access whitelist.",
     JSON.stringify(packet, null, 2)
   ].join("\n\n");

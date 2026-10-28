@@ -28,6 +28,16 @@
 
 产品同时锁定基座 revision 和 Profile 版本。旧项目继续使用其锁定版本；采用新版前比较产物与规则差异，记录采用范围及缺口，不因基座升级自动重写产品锁、状态、设计或审批。旧版本可从其原基座 revision 恢复。已有明确设计整改要求时按当前要求重构，不能以兼容旧产物为由继续执行失效设计。
 
+## 3.0.0：分支交付、语义整理与封闭
+
+`consumer-ai-web@3.0.0` 是不兼容的交付契约升级：`workflow.delivery.planning_storage: branch`、policy schema 2，里程碑/Quick 从 main 分支开发，workstream 支持两种父类型，子→父普通合并，父→main squash。
+
+`workflow.stages[].required_artifacts` 用于执行阶段；`workflow.final_artifacts` 是最终有效正文/设计/测试的基础清单，相关资源及实际验收依据仍需保留。交接单和过程材料可在用途结束后删除，不要求为其生成压缩包。`workflow.workstreams.parent_kinds` 与 `quick_artifact_root` 声明 Quick 父作用域；终止阶段只完成子需求，不自动交付父任务。
+
+每个里程碑继承已封闭前序基线，只记录本轮增量。完成验收、资料整理与交付后里程碑只读，后续任务不能回写。过去未清理好的资料仅按明确的一次性整改范围清理，保持原验收结论，完成后重新封闭。
+
+新项目记录采用及工程部署策略；旧项目比较基座/补丁/工具消费者后显式升级。旧 2.x 锁按其原版本解释，不因最新版文件变化自动迁移。3.0 保留 `.planning` 的分支版本管理，替换 2.2 草案的 local-only 和 archive.json.gz 机制。
+
 ## 角色和阶段规则
 
 `consumer-ai-web@2.1.0` 增加上述可选能力，不新增单流程必需产物。既有产品需显式升级锁并采用并行配置，原状态、审批和文档保留；采用步骤见[需求工作流协议](../core/workstreams.md)。配置保存所采用 Profile 的快照，不随基座文件自动变化。

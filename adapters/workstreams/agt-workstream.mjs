@@ -5,7 +5,7 @@ import * as streams from "./workstreams.mjs";
 
 const help = `agt-workstream <command> --project PATH [options]
   context                         Resolve scoped state/registry/artifacts (read-only)
-  enable --profile FILE --target BRANCH --milestone M001 --approval SOURCE
+  enable --profile FILE --target BRANCH (--milestone M001 | --quick Q001-slug) --approval SOURCE
   create --id SLUG --title TEXT --scope TEXT --agent product-NAME [--path PATH] [--dependencies JSON_ARRAY]
   list                            Show live and committed progress (read-only)
   resume --id SLUG [--path PATH]   Locate/recreate a worktree; does not steal a session
@@ -14,6 +14,7 @@ const help = `agt-workstream <command> --project PATH [options]
   recover --id SLUG --token TOKEN  Only if the recorded process has exited
   recover --operation-lock --token TOKEN
   activate --role ROLE --agent NAME --token TOKEN --approval SOURCE
+  checkpoint --token TOKEN         Back up local planning outside product Git history
   accept --token TOKEN --approval PATH --decision ID --evidence JSON_ARRAY
   integrate --id SLUG              Prepare/resume a local integration candidate
   check --id SLUG --checks FILE    JSON array of argv arrays; executes in candidate
@@ -31,9 +32,9 @@ try {
   else {
     const options = {};
     const allowed = {
-      context: [], enable: ["profile", "target", "milestone", "approval"], create: ["id", "title", "scope", "agent", "path", "dependencies"],
+      context: [], enable: ["profile", "target", "milestone", "quick", "approval"], create: ["id", "title", "scope", "agent", "path", "dependencies"],
       list: [], resume: ["id", "path"], claim: ["id", "owner", "pid"], release: ["id", "token"], recover: ["id", "token", "operation-lock"],
-      activate: ["role", "agent", "token", "approval"], accept: ["token", "approval", "decision", "evidence"], integrate: ["id"],
+      activate: ["role", "agent", "token", "approval"], checkpoint: ["token"], accept: ["token", "approval", "decision", "evidence"], integrate: ["id"],
       check: ["id", "checks"], finish: ["id"], "pause-integration": ["id"], cleanup: ["id"],
     };
     if (!allowed[command]) throw Error(`Unknown command: ${command}`);
@@ -53,7 +54,7 @@ try {
     const result = action(project, options);
     // Entry points stay small; the adopted Profile remains in the config file.
     if (result.config) {
-      result.configuration = ".planning/agt/workstreams.json";
+      result.configuration = result.config.planning_storage === "local" ? ".agt/workstreams.json" : ".planning/agt/workstreams.json";
       result.profile = `${result.config.profile.id}@${result.config.profile.version}`;
       result.integration_target = result.config.target;
       delete result.config;

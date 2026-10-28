@@ -3,7 +3,11 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, openSync, closeSync, readFileSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { hostname } from "node:os";
+import * as delivery from "../delivery/delivery.mjs";
+import { resolveContext, parentId } from "../workstreams/context.mjs";
+import * as streams from "../workstreams/workstreams.mjs";
 
+const branchMode = root => delivery.policy(root)?.schema_version === 2;
 const ROOT = ".planning/quick";
 const CONFIG = ".planning/agt/quick-tasks.json";
 const terminal = new Set(["complete", "escalated", "cancelled"]);
@@ -41,9 +45,14 @@ function context(project, writing = false) {
   assert(config.schema_version === 1 && config.enabled === true && text(config.adoption_source), "Quick tasks need explicit adoption");
   assert(existsSync(pathAt(root, ".planning/agt/project.yaml")) && existsSync(pathAt(root, ".planning/workflow/state.yaml")), "Missing AGT project/state");
   if (writing) {
-    assert(!existsSync(pathAt(root, ".planning/agt/workstreams.json")), "Quick writes do not support workstreams; use the requirement workflow and lease");
     const branch = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    if (existsSync(pathAt(root, ".planning/agt/workstreams.json")) || existsSync(pathAt(root, ".agt/workstreams.json"))) {
+      assert(branchMode(root), "Quick writes do not support legacy workstreams; use the requirement workflow and lease");
+      const ctx = resolveContext(root);
+      assert(branchMode(root) && ctx.mode === "coordinator" && ctx.config.parent?.kind === "quick", "Quick writes require their own parent; use the requirement workflow and lease in children");
+    }
     assert(!branch.startsWith("agt/"), "Workstream binding must not fall back to Quick");
+    if (branchMode(root)) assert(branch.startsWith("quick/"), "Quick writes require the owning quick/<ID> branch, never main");
     return { root, branch };
   }
   return { root };
@@ -121,17 +130,27 @@ function documentPlanCheck(root, s) {
 }
 function load(root, id, branch) {
   const task = json(taskPath(root, id));
+  assert(task.completion_kind !== "historical_completion_preserved", "Historical completed Quick is immutable; use show/resume or create a new task");
   assert(task.schema_version === 1 && task.id === id && statuses.has(task.status), "Invalid Quick record");
   assert(Number.isInteger(task.revision) && task.revision > 0 && Number.isInteger(task.plan_revision) && task.plan_revision > 0 && Array.isArray(task.checks), "Invalid Quick revisions/checks");
   specCheck(root, task, !!branch);
+  if (branch && branchMode(root)) {
+    assert(branch === `quick/${task.id}`, "Quick task must use its own delivery branch");
+    delivery.assertWritable(root, [...task.write_scope, `${ROOT}/${task.id}/task.json`]);
+    if (existsSync(pathAt(root, ".planning/agt/workstreams.json"))) {
+      const ctx = resolveContext(root);
+      assert(parentId(ctx.config) === task.id, "Quick parent binding mismatch");
+    }
+  }
   if (branch) assert(task.branch === branch, `Task belongs to branch ${task.branch}; do not resume writes on ${branch}`);
   return task;
 }
-function save(root, task) {
+function save(root, task, beforeWrite) {
   const file = taskPath(root, task.id);
   assert(json(file).revision === task.revision, "Task changed during operation; reload before writing");
   task.revision += 1;
   task.updated_at = now();
+  if (beforeWrite) beforeWrite();
   const temp = `${file}.${process.pid}.tmp`;
   writeFileSync(temp, JSON.stringify(task, null, 2) + "\n", { flag: "wx" });
   renameSync(temp, file);
@@ -156,7 +175,7 @@ function evidence(root, paths, task) {
     assert(!task || path !== `${ROOT}/${task.id}/task.json`, "Evidence cannot reference its own mutable task record");
     const digest = fileDigest(root, path);
     assert(digest !== null, `Missing evidence: ${path}`);
-    if (!task) return { path, digest };
+    if (!task || branchMode(root)) return { path, digest };
     const bytes = readFileSync(pathAt(root, path)), sha256 = hash(bytes);
     // Keep immutable command logs in place; snapshot other evidence once per content.
     let snapshot = path;
@@ -179,7 +198,7 @@ function captureDocumentBaselines(root, task) {
     if (task.document_baselines.some(b => b.path === path)) continue;
     const digest = fileDigest(root, path);
     let original = null;
-    if (digest !== null) {
+    if (digest !== null && !branchMode(root)) {
       const bytes = readFileSync(pathAt(root, path));
       const previous = spawnSync("git", ["show", `${task.base_commit}:${path}`], { cwd: root, maxBuffer: 16 * 1024 * 1024 });
       if (previous.status === 0 && previous.stdout.equals(bytes)) original = { git_revision: task.base_commit, path, sha256: hash(bytes) };
@@ -209,6 +228,7 @@ function documentSignature(root, task, d) {
   return hash(JSON.stringify({ definition: Object.fromEntries([...definitionKeys, "plan_revision"].map(k => [k, task[k]])), approval: approvalDigest(root, task, d), files: [...paths].sort().map(p => [p, fileDigest(root, p)]) }));
 }
 function documentStatus(root, task) {
+  if (branchMode(root) && task.status === "complete" && task.final_validation) return task.final_validation.documents;
   const cache = new Map();
   const resolveJob = d => {
     if (cache.has(d.id)) return cache.get(d.id);
@@ -231,6 +251,9 @@ function requireUpstreamDocuments(root, task) {
   assert(!pending.length, `Upstream document reconciliation required: ${pending.map(d => d.id).join(", ")}`);
 }
 function validChecks(root, task) {
+  if (branchMode(root) && task.status === "complete" && task.final_validation) return task.final_validation.checks.map(c => ({ ...c,
+    pass: c.pass && c.evidence.every(e => fileDigest(root, e.path) === e.digest),
+    current_evidence: c.evidence.every(e => fileDigest(root, e.path) === e.digest) }));
   const current = fingerprint(root, task);
   const latest = new Map();
   for (const check of task.checks) for (const id of check.criteria) latest.set(id, check);
@@ -254,6 +277,7 @@ function originalIntact(root, original) {
   return r.status === 0 && hash(r.stdout) === original.sha256;
 }
 function archiveIntact(root, task) {
+  if (branchMode(root)) return true;
   const originals = (task.document_baselines || []).map(b => b.original).filter(Boolean);
   const records = [...task.checks, ...(task.document_receipts || []), ...task.events.filter(e => e.previous_closeout).map(e => e.previous_closeout), ...(task.context_closeout ? [task.context_closeout] : [])];
   for (const entry of records.flatMap(r => r.evidence || [])) {
@@ -265,7 +289,7 @@ function archiveIntact(root, task) {
 function closeoutStatus(root, task) {
   const c = task.context_closeout;
   if (!c) return { pass: false, reason: "context_compaction_missing", content_review: "not_run", static_integrity: "not_run", independent_recovery: "not_run" };
-  const fresh = c.signature === closeoutSignature(root, task) && c.evidence.every(e => fileDigest(root, e.path) === e.digest);
+  const fresh = (branchMode(root) && task.status === "complete" && task.final_validation ? validChecks(root, task).every(v => v.pass) : c.signature === closeoutSignature(root, task)) && c.evidence.every(e => fileDigest(root, e.path) === e.digest);
   const intact = archiveIntact(root, task);
   const recovered = c.recovery_check.status !== "fail";
   return { pass: fresh && intact && recovered, reason: !fresh ? "context_compaction_stale" : !intact ? "historical_original_missing_or_changed" : !recovered ? "recovery_check_failed" : "current",
@@ -284,6 +308,13 @@ function brief(root, task) {
   result.validation_now = validChecks(root, task);
   result.documents_now = documentStatus(root, task);
   result.compaction_now = current;
+  if (delivery.policy(root)) {
+    try {
+      if (task.status === "complete") delivery.validateArchive(root, task.id);
+      else delivery.assertReviewed(root, task.id);
+      result.delivery_now = { pass: true, status: task.status === "complete" ? (branchMode(root) ? "finalized" : "archived") : "reviewed" };
+    } catch (error) { result.delivery_now = { pass: false, reason: error.message }; }
+  }
   result.current_checks = task.acceptance.map(a => {
     const check = task.checks.findLast(c => c.criteria.includes(a.id));
     return { id: a.id, method: a.verification, status: check?.status || "not_run", current: result.validation_now.find(v => v.id === a.id).pass, summary: check?.summary || null,
@@ -333,6 +364,15 @@ export function compact(project, id, input) {
     const content = Object.fromEntries(["outcome", "rationale", "verification_scope", "limitations", "decisions", "retained_items", "documents"].map(k => [k, input[k]]));
     content.resolved_items = resolved;
     content.recovery_check = recovery;
+    if (branchMode(root)) {
+      // Only the latest effective results belong to the final task record.
+      const latest = new Map();
+      for (const check of task.checks) for (const criterion of check.criteria) latest.set(criterion, check);
+      task.checks = [...new Set(latest.values())];
+      task.document_receipts = task.document_tasks.map(d => task.document_receipts.findLast(r => r.document === d.id));
+      task.events = [];
+      for (const baseline of task.document_baselines) delete baseline.original;
+    }
     const signature = closeoutSignature(root, task);
     const proof = refs.length ? evidence(root, [...new Set(refs)], task) : [];
     const next = { ...content, executor: task.executor, signature, evidence: proof };
@@ -341,7 +381,7 @@ export function compact(project, id, input) {
       assert(archiveIntact(root, task), "Historical originals missing or changed");
       return task;
     }
-    if (task.context_closeout) task.events.push({ at: now(), action: "compact-replaced", previous_closeout: task.context_closeout });
+    if (task.context_closeout && !branchMode(root)) task.events.push({ at: now(), action: "compact-replaced", previous_closeout: task.context_closeout });
     task.context_closeout = next;
     assert(archiveIntact(root, task), "Historical originals missing or changed");
     return save(root, task);
@@ -351,13 +391,22 @@ export function list(project) {
   const { root } = context(project);
   const dir = pathAt(root, ROOT);
   if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter(id => /^Q[0-9]{3,}-/.test(id)).sort().map(id => {
+  return readdirSync(dir).filter(id => /^Q[0-9]{3,}-/.test(id)).filter(id => existsSync(taskPath(root, id)) || !existsSync(pathAt(root, `${ROOT}/${id}/branch.json`))).sort().map(id => {
     const t = json(taskPath(root, id));
     return { id, title: t.title, status: t.status, branch: t.branch, milestone: t.milestone, next_action: t.next_action, path: `${ROOT}/${id}/task.json` };
   });
 }
 export function show(project, id, { history = false } = {}) {
   const { root } = context(project);
+  const stored = json(taskPath(root, id));
+  if (stored.completion_kind === "historical_completion_preserved") {
+    const { summary } = delivery.validateSummary(root, id);
+    assert(summary.closed && summary.facts?.historical && summary.facts?.kind === "quick", "Historical Quick needs its closed completion summary");
+    return { ...stored, summary: summary.outcome, verification: { summary: summary.verification, reexecuted: false, kind: "historical_completion_preserved" },
+      validation_now: [], current_checks: [], documents_now: [{ pass: true, scope: "retained_document_integrity" }],
+      compaction_now: { pass: true, reason: "historical_content_consolidated", independent_recovery: "not_run" },
+      delivery_now: { pass: true, status: "closed" }, path: `${ROOT}/${id}/task.json` };
+  }
   const task = load(root, id);
   return history ? { ...task, validation_now: validChecks(root, task), documents_now: documentStatus(root, task), compaction_now: closeoutStatus(root, task), path: `${ROOT}/${id}/task.json` } : brief(root, task);
 }
@@ -366,7 +415,17 @@ export function dispatch(project, id, document) {
   const job = task.document_tasks.find(d => d.id === document);
   assert(job, "Unknown document task");
   const definition = job.role.startsWith("product/") ? `roles/product/variants/${job.role.split("/")[1]}.md` : job.role === "gatekeeper" ? "roles/gatekeeper/ROLE.md" : `roles/${job.role}.md`;
-  return { task: id, document, role: job.role, role_definition: definition, mode: "task-scoped responsibility; packet only, no agent launched", request: task.request, change: job.change, sources: task.sources, write_scope: job.paths, baselines: task.document_baselines.filter(b => job.paths.includes(b.path)), dependencies: documentStatus(root, task).filter(d => job.depends_on.includes(d.id)), approval_required: job.approval_required, approval_source: job.approval_source, return_contract: "Update and consolidate canonical documents: retain current constraints, reasons, effective results, limitations, retained IDs and evidence routes; remove repeated rounds and obsolete actions from default reading. Preserve original versions; report actual executor/mode, decision source, downstream impact and evidence through reconcile. Do not alter milestone state or frozen approvals." };
+  return { task: id, document, role: job.role, role_definition: definition, mode: "task-scoped responsibility; packet only, no agent launched", request: task.request, change: job.change, sources: task.sources, write_scope: job.paths, baselines: task.document_baselines.filter(b => job.paths.includes(b.path)), dependencies: documentStatus(root, task).filter(d => job.depends_on.includes(d.id)), approval_required: job.approval_required, approval_source: job.approval_source, return_contract: (branchMode(root) ? "Consolidate effective current documents, remove resolved development records, preserve unresolved scope and final evidence; closed milestones are read-only. Report actual responsibility result through reconcile." : "Update and consolidate canonical documents: retain current constraints, reasons, effective results, limitations, retained IDs and evidence routes; remove repeated rounds and obsolete actions from default reading. Preserve original versions; report actual executor/mode, decision source, downstream impact and evidence through reconcile. Do not alter milestone state or frozen approvals.") };
+}
+// Task-scoped authority shared by CLI and native model dispatch; no milestone activation.
+export function modelTaskContext(project, id, role, packet) {
+  const { root, branch } = context(project, true), task = load(root, id, branch);
+  active(task);
+  assert(Object.values(documentRoles).flat().includes(role), "Unknown Quick responsibility role");
+  assert(packet.write_scope.every(path => task.write_scope.includes(path)), "Model task write_scope exceeds the active Quick task");
+  for (const path of packet.write_scope) pathAt(root, path);
+  const role_definition = role.startsWith("product/") ? `roles/product/variants/${role.split("/")[1]}.md` : role === "gatekeeper" ? "roles/gatekeeper/ROLE.md" : `roles/${role}.md`;
+  return { mode: "quick", id, role, role_definition, plan_revision: task.plan_revision };
 }
 export function reconcile(project, id, receipt) {
   return locked(project, ({ root, branch }) => {
@@ -390,6 +449,19 @@ export function reconcile(project, id, receipt) {
   });
 }
 export function create(project, spec) {
+  const { root } = context(project);
+  if (branchMode(root)) {
+    specCheck(root, spec);
+    assert(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(spec.slug) && spec.slug.length <= 60, "Invalid task slug");
+    const number = 1 + Math.max(0, ...list(root).map(t => Number(t.id.match(/^Q([0-9]+)-/)[1])));
+    const id = `Q${String(number).padStart(3, "0")}-${spec.slug}`;
+    const branch = git(root, ["symbolic-ref", "--short", "HEAD"]);
+    if (branch === (delivery.policy(root).main_branch || "main")) {
+      assert(!git(root, ["status", "--porcelain"]), "Start a Quick from clean main; preserve existing edits first");
+      delivery.assertWritable(root, spec.write_scope);
+      git(root, ["switch", "-c", `quick/${id}`]);
+    }
+  }
   return locked(project, ({ root, branch }) => {
     specCheck(root, spec);
     assert(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(spec.slug) && spec.slug.length <= 60, "Invalid task slug");
@@ -397,6 +469,10 @@ export function create(project, spec) {
     assert(!all.some(t => t.id.endsWith(`-${spec.slug}`) && !terminal.has(t.status)), "An unfinished task with this slug exists; resume it");
     const number = 1 + Math.max(0, ...all.map(t => Number(t.id.match(/^Q([0-9]+)-/)[1])));
     const id = `Q${String(number).padStart(3, "0")}-${spec.slug}`;
+    if (branchMode(root)) {
+      assert(branch === `quick/${id}`, `Create this task on quick/${id}`);
+      delivery.assertWritable(root, [...spec.write_scope, `${ROOT}/${id}/task.json`]);
+    }
     const task = Object.fromEntries(definitionKeys.map(k => [k, spec[k]]));
     Object.assign(task, { schema_version: 1, id, status: "planned", revision: 1, plan_revision: 1, branch, base_commit: git(root, ["rev-parse", "HEAD"]), initial_scope_status: git(root, ["status", "--porcelain", "--", ...spec.write_scope]), created_at: now(), updated_at: now(), checks: [], document_receipts: [], events: [], progress: null, summary: null, next_action: "Start the approved bounded task" });
     const file = taskPath(root, id);
@@ -417,6 +493,7 @@ export function change(project, id, action, { reason, target, summary, next, spe
       task.status = "active"; task.next_action = "Execute the scoped plan and verify acceptance";
     } else if (action === "revise") {
       specCheck(root, spec);
+      if (branchMode(root)) delivery.assertWritable(root, spec.write_scope);
       assert(text(reason), "Plan revision requires a reason");
       previousPlan = Object.fromEntries(["plan_revision", "write_scope", "sources", "plan", "acceptance", "progress", "document_impacts", "document_tasks"].map(k => [k, task[k]]));
       for (const key of definitionKeys.filter(k => k !== "request")) task[key] = spec[key];
@@ -434,6 +511,11 @@ export function change(project, id, action, { reason, target, summary, next, spe
       assert(checks.every(x => x.pass), `Unverified, failed or stale acceptance: ${checks.filter(x => !x.pass).map(x => x.id).join(", ")}`);
       const closeout = closeoutStatus(root, task);
       assert(closeout.pass, `Context compaction required: ${closeout.reason}`);
+      if (branchMode(root) && existsSync(pathAt(root, ".planning/agt/workstreams.json"))) {
+        assert(streams.list(root).every(child => child.integrated && !child.dirty && !child.session), "Integrate and release every child workstream before Quick completion");
+      }
+      if (delivery.policy(root)) delivery.assertReviewed(root, task.id);
+      if (branchMode(root)) task.final_validation = { documents, checks: checks.map(c => ({ ...c, evidence: task.checks.findLast(x => x.criteria.includes(c.id)).evidence })) };
       assert(summary === undefined || summary === task.context_closeout.outcome, "Finish summary must match the reviewed context outcome; revise compact input first");
       task.status = "complete"; task.summary = task.context_closeout.outcome; task.next_action = null;
       task.completed_fingerprint = fingerprint(root, task);
@@ -444,7 +526,15 @@ export function change(project, id, action, { reason, target, summary, next, spe
       task.next_action = action === "cancel" ? null : target || reason;
     }
     if (action !== "checkpoint") task.events.push({ at: now(), action, reason: reason || null, target: target || null, ...(previousPlan ? { previous_plan: previousPlan } : {}) });
-    return save(root, task);
+    return save(root, task, action === "finish" && delivery.policy(root) ? () => {
+      const records = [...task.checks, ...task.document_receipts, ...task.events.filter(e => e.previous_closeout).map(e => e.previous_closeout), task.context_closeout];
+      const originals = [...task.document_baselines.map(b => b.original), ...records.flatMap(r => (r.evidence || []).map(e => e.original))].filter(Boolean);
+      const required = branchMode(root)
+        ? [...new Set([...task.checks, task.context_closeout].flatMap(r => r.evidence || []).map(e => e.path).filter(p => p.startsWith(`${ROOT}/${id}/`)))]
+        : [...new Set(originals.map(o => o.snapshot).filter(Boolean))];
+      delivery.seal(root, task.id, { kind: "quick", status: "complete", outcome: task.summary, verified_fingerprint: task.completed_fingerprint },
+        { required, overrides: { [`${ROOT}/${task.id}/task.json`]: JSON.stringify(task, null, 2) + "\n" } });
+    } : undefined);
   });
 }
 export function observe(project, id, observations) {

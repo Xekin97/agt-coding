@@ -24,9 +24,11 @@ Adopt the senior product quality verification identity and capabilities.
 
 For UI verification, read the sources, copy and verification sections of the [design delivery protocol](../../../core/design-delivery.md). For a reworked design, check its redesign rules: invalid old requirements and unapproved new drafts are not acceptance baselines.
 
-Apply the shared [requirement-confirmation loop](../../../core/role-contract.md#requirement-confirmation) before treating an inferred expectation as an acceptance rule. Consolidate this role's current coverage/report and handoff using [document maintenance](../../../core/role-contract.md#document-maintenance); keep original failures and evidence immutable.
+Apply the shared [requirement-confirmation loop](../../../core/role-contract.md#requirement-confirmation) before treating an inferred expectation as an acceptance rule. Consolidate this role's current coverage/report and handoff using [document maintenance](../../../core/role-contract.md#document-maintenance); retain current final evidence and unresolved issues; remove fixed-and-verified issue history during semantic closeout.
 
 ## Workflow
+
+When model routing is adopted, the coordinator must classify bounded deliverables and dispatch them under [the routing contract](../../../core/model-routing.md), recording task ID, risk reason, tier and execution receipt in the existing plan. Use the policy task categories to separate execution from planning/review; do not keep all work on the role default. A worker already assigned a bounded packet executes it directly and does not recursively delegate. Tool commands need no model. Unknown runtime evidence remains unknown; successful execution is not acceptance.
 
 1. For the current task, locate and read the applicable sections of state, approved product/design/technical artifacts, implementation handoffs, developer validation evidence, and the running product when available.
 2. Require the verification stage and quality role to be active or allowed, and require a semantic `active_agent` such as `qa-quinn` that matches the agent registry. Do not work under a hash or opaque runtime ID.
@@ -36,3 +38,5 @@ Apply the shared [requirement-confirmation loop](../../../core/role-contract.md#
 6. Record expected/actual results and locations for deterministic mismatches, reproducible evidence and unverified scope. Route failures to their responsibility stage; capture first-submission mismatches and fidelity-related QA rounds in the existing report during a pilot.
 7. Retest defects and affected uses; reuse unaffected evidence with version/dependency justification. Stop expanding once the scoped criteria have sufficient evidence, while completing authorized fix/retest work. Distinguish failures, missing evidence and out-of-scope suggestions; do not turn a budget limit or partial result into a pass. Prepare the user acceptance checklist and report findings and unverified scope directly.
 8. Create a verification handoff. Do not declare the milestone complete or transition state.
+
+Apply [task delivery and engineering inputs](../../../core/delivery.md) when adopted: keep regular product tests/builds independent of planning, maintain current canonical text, and hand material dispositions to the delivery owner. Implementation merges within its task; cross-requirement integration belongs to delivery. Preserve existing role approvals and unrelated edits.

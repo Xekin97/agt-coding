@@ -18,7 +18,7 @@ function fixture(t) {
   git(project, ["config", "user.name", "Workstream Test"]);
   git(project, ["config", "user.email", "workstream@example.invalid"]);
   git(project, ["config", "commit.gpgsign", "false"]);
-  write(join(project, ".planning/agt/project.yaml"), { profile: { id: "consumer-ai-web", version: "2.1.0" }, agt: { git_revision: "approved-framework-revision" } });
+  write(join(project, ".planning/agt/project.yaml"), { profile: { id: "consumer-ai-web", version: readYaml(profile).version }, agt: { git_revision: "approved-framework-revision" } });
   write(join(project, ".planning/workflow/state.yaml"), { milestone: "M001", stage: "product-planning", status: "active", active_role: "product/to-c", active_agent: "product-maya" });
   write(join(project, ".planning/agt/agents.yaml"), { agents: [{ role: "product/to-c", display_name: "product-maya", status: "active" }] });
   write(join(project, "app.txt"), "base\n");

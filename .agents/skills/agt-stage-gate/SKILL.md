@@ -31,7 +31,7 @@ Check the specialist's [requirement-confirmation record](../../../core/role-cont
 
 ## Operation modes
 
-In opted-in workstream mode, use the [workstream protocol](../../../core/workstreams.md): reuse the current writer lease; route role activation through the shared-lock `activate` command; update only the resolved state/history and resolve required artifacts for the target stage. A terminal stage completes this requirement only. After scoped user acceptance, commit the approved deliverables/state/history, then run `accept` with the approval source, decision ID and evidence paths to bind the receipt to that version. Do not run integration checks or declare the whole milestone complete here.
+In opted-in workstream mode, use the [workstream protocol](../../../core/workstreams.md): reuse the current writer lease; route role activation through the shared-lock `activate` command; update only the resolved state/history and resolve required artifacts for the target stage. A terminal stage completes this requirement only. After scoped user acceptance, follow the adopted storage mode: branch mode commits code and current planning on the parent/child branch, then reviews final retained content; legacy locked projects retain their old interpretation until migration. Then run `accept` with the approval source, decision ID and evidence paths to bind the receipt to that version. Do not run integration checks or declare the whole milestone complete here.
 
 - `activate-role`: keep the current stage, confirm the requested role is allowed, validate or assign its semantic name, then update only the agent registry, `active_role`, and `active_agent`.
 - `transition-stage`: run the full artifact gate before changing stage.
@@ -50,3 +50,5 @@ Never combine role activation with a stage transition unless the user explicitly
 7. Update state and history only within the verified authorization scope. Continuous execution still checks each transition; a scoped acceptance or terminal state does not authorize milestone closeout or a new milestone.
 8. Before activating any role, require or assign a unique semantic display name, validate it with `validators/validate-agent-name.sh`, check registry uniqueness, record it in the agent registry and state, and map it to a restricted runtime name only when Codex requires it.
 9. Report the next active role with its semantic name and stop; do not perform that role's professional work.
+
+For adopted [branch delivery](../../../core/delivery.md), retain normal acceptance authority and commit scoped state/current planning on the development branch. After terminal acceptance, hand semantic closeout to the delivery owner; workstream accept saves final retained content and a readable summary. Parent delivery squashes into main and closes the milestone read-only. Delivery is task-scoped and does not require a fake milestone role activation.

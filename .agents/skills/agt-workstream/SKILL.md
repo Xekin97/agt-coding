@@ -12,7 +12,7 @@ Identify the separate product repository. This skill manages workflow lifecycle 
 ## Adopt or create
 
 - Inspect the locked manifest/Profile and existing state. Legacy projects stay in single-flow mode until explicitly adopting the compatible Profile and configuration. Show concrete adoption differences if adoption is not already authorized; preserve old artifacts and approvals.
-- After adoption is recorded and committed on the chosen integration branch, run `create` with a meaningful slug, the user's title and confirmed scope, a unique semantic product agent name, and known dependencies. It creates and commits only the new requirement's metadata and initial workflow.
+- After adoption is recorded and committed on the chosen integration branch, run `create` with a meaningful slug, the user's title and confirmed scope, a unique semantic product agent name, and known dependencies. It creates the new requirement's metadata and initial workflow, committed on its scoped development branch. Parent may be a milestone or Quick; never target main directly.
 - Report the resulting worktree path and branch so the user can open it. Do not open terminals or spawn agents automatically. Product planning is the initial stage; creation does not approve later stages.
 
 ## Inspect or resume
@@ -31,3 +31,5 @@ Identify the separate product repository. This skill manages workflow lifecycle 
 6. Report the integrated commit, tested scope, remaining integration/acceptance items, and cleanup eligibility. Cleanup may run from another window after the requirement and temporary worktree are safely integrated; branches and formal records remain.
 
 On failures, explain the retained worktree/evidence and concrete recovery command. A successful Git merge does not resolve semantic conflicts or prove milestone completion. Never treat a missing binding as permission to overwrite project-level state.
+
+When [branch delivery](../../../core/delivery.md) is adopted, configure `enable --milestone M001 --target milestone/M001` or `enable --quick Q001-slug --target quick/Q001-slug`. Commit scoped planning with code; final accepted content uses readable summaries, not archives. Children merge normally into the parent. Final parent-to-main delivery uses squash and closes the completed scope read-only. Later work must not mutate a closed milestone.

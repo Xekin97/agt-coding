@@ -110,7 +110,8 @@ roles = require_non_empty_array.call(profile, "roles", "profile")
 role_ids = []
 specialist_ids = []
 control_ids = []
-allowed_prefixes = %w[bootstrap gatekeeper product designer dba backend frontend qa]
+delivery_ids = []
+allowed_prefixes = %w[bootstrap gatekeeper product designer dba backend frontend qa delivery]
 
 roles.each_with_index do |role, index|
   context = "roles[#{index}]"
@@ -133,8 +134,10 @@ roles.each_with_index do |role, index|
     specialist_ids << role_id if role_id
   elsif kind == "control"
     control_ids << role_id if role_id
+  elsif kind == "delivery"
+    delivery_ids << role_id if role_id
   else
-    errors << "#{context}.kind must be specialist or control"
+    errors << "#{context}.kind must be specialist, control or delivery"
   end
   errors << "#{context}.display_name_prefix is not supported: #{prefix}" if prefix && !allowed_prefixes.include?(prefix)
   sources.each_with_index { |source, source_index| relative_repo_file.call(source, "#{context}.sources[#{source_index}]") }
@@ -153,16 +156,35 @@ control_role = require_string.call(workflow, "control_role", "workflow")
 stages = require_non_empty_array.call(workflow, "stages", "workflow")
 errors << "workflow.control_role must reference a control role" if control_role && !control_ids.include?(control_role)
 
-stage_ids = stages.filter_map { |stage| stage["id"] if stage.is_a?(Hash) }
+stage_ids = stages.map { |stage| stage["id"] if stage.is_a?(Hash) }.compact
 errors << "workflow.initial_stage does not exist: #{initial_stage}" if initial_stage && !stage_ids.include?(initial_stage)
 errors << "workflow.terminal_stage does not exist: #{terminal_stage}" if terminal_stage && !stage_ids.include?(terminal_stage)
 errors << "workflow stage ids must be unique" unless stage_ids.uniq.length == stage_ids.length
 
 referenced_specialists = []
+if workflow.key?("delivery")
+  delivery = workflow["delivery"]
+  unless delivery.is_a?(Hash) && delivery["supported"] == true && delivery["opt_in"] == true && %w[local branch].include?(delivery["planning_storage"]) && delivery_ids == [delivery["role"]]
+    errors << "workflow.delivery must declare an opt-in planning capability with its delivery role"
+  end
+  if delivery.is_a?(Hash) && delivery["planning_storage"] == "branch"
+    errors << "branch delivery requires schema 2, final squash and read-only closed milestones" unless delivery["policy_schema_version"] == 2 && delivery["final_merge"] == "squash" && delivery["closed_milestones"] == "read-only"
+    final = require_non_empty_array.call(workflow, "final_artifacts", "workflow")
+    errors << "final_artifacts must be unique" unless final.uniq.length == final.length
+    final.each do |path|
+      errors << "final_artifacts must use safe milestone-relative paths" unless path.is_a?(String) && path.start_with?(".planning/milestones/{milestone}/") && !Pathname.new(path).each_filename.any? { |part| ["..", "."].include?(part) }
+    end
+  end
+elsif !delivery_ids.empty?
+  errors << "delivery roles require workflow.delivery"
+end
 if workflow.key?("workstreams")
   streams = workflow["workstreams"]
   unless streams.is_a?(Hash) && streams["supported"] == true && streams["opt_in"] == true && streams["artifact_root"] == ".planning/milestones/{milestone}/workstreams/{workstream}"
     errors << "workflow.workstreams must explicitly declare supported, opt_in and the scoped artifact_root"
+  end
+  if streams.is_a?(Hash) && streams.key?("parent_kinds")
+    errors << "workstream parents must be milestone and quick with a scoped Quick root" unless streams["parent_kinds"] == %w[milestone quick] && streams["quick_artifact_root"] == ".planning/quick/{quick}/workstreams/{workstream}"
   end
 end
 artifact_paths = []

@@ -1,123 +1,124 @@
 # Codex 分档模型适配器
 
-这是可运行的路由器和CLI启动器，不是仅供阅读的推荐表。要求Node.js 20.11+；启动项目任务还需要Ruby（读取既有YAML状态/注册表），无需安装npm依赖。主策略在 [models/codex-balanced.json](../../models/codex-balanced.json)，规则在 [core/model-routing.md](../../core/model-routing.md)。
+提供任务路由、CLI 执行、原生子任务分派参数及执行回执。要求 Node.js 20.11+、Ruby（读取既有 YAML）；无需 npm 依赖。策略在 [models/codex-balanced.json](../../models/codex-balanced.json)，职责与授权在 [调度契约](../../core/model-routing.md)。
 
-## 默认编排
+## 默认分工
 
-| 阶段 / 任务 | 默认配置 | 升级原则 |
+| 工作 | 配置 | 边界 |
 | --- | --- | --- |
-| 初始化、需求/产品策划 | GPT-6 Astra / high | 不默认max |
-| DBA、前后端架构 | GPT-6 Astra / high | 不用低成本执行者重新决定架构 |
-| UI/UX设计 | GPT-6.1 Sol / high | 全新复杂交互/高风险判定升Astra |
-| 实施主角色、Plan、测试设计 | GPT-6.1 Sol / high | 明确任务包后再交执行档 |
-| 普通编码、机械修改、单测生成、局部初修 | GPT-6 Luna / medium | 明确写入范围/输入/验收；高风险直接Sol |
-| test/lint/tsc/build执行 | 工具，无模型 | 失败解释/覆盖判断另分配任务 |
-| 疑难Bug、Code Review、独立验收 | GPT-6.1 Sol / high | critical升Astra |
-| 普通文档整理 | GPT-6 Luna / medium | 新需求、架构结论、验收判断不属于整理 |
-| 守门器事务性检查 | GPT-6.1 Sol / medium + 校验脚本 | 不替专业角色复写方案或进行语义验收 |
+| 产品、DBA、前后端架构决定 | GPT-6 Astra / high | 保持专业角色责任 |
+| UI/UX、实施计划、测试设计、疑难调试、代码评审、独立验收 | GPT-6.1 Sol / high | 明确执行项再分派 |
+| 普通编码、机械修改、单测编写、局部初修、明确文档整理 | GPT-6 Luna / medium | 有输入、范围和验收；高风险升级 |
+| 文档压缩保留规则、语义复核 | GPT-6.1 Sol / high | `document-plan` / `document-review` |
+| 归档搬移、hash、链接检查；test/lint/tsc/build 命令 | 工具 | `archive-execution` / `test-execution`，不启动模型 |
+| 事务性守门检查 | GPT-6.1 Sol / medium + 工具 | 不替专业角色验收 |
 
-当前中央策略为`codex-balanced` 1.1.0（2026-10-05核验）。`balanced`和`strong`共用GPT-6.1 Sol，分别使用medium和high；从均衡档升级到强档时提高推理等级，四档职责和失败升级次数保持不变。
+中央策略 `codex-balanced@1.2.0` 新增文档计划、文档复核和归档执行类别，保留 1.1.0 的模型绑定。绑定资料的核验日期仍为 2026-10-05；每次模型分派另做实时能力预检。复杂 AGT 压缩通常按“Sol 确定保留项 → Luna 整理 → 工具静态检查 → Sol 语义复核”完成；明确的小整理不强制四轮。`agt-quick compact` 只登记、核验已完成的整理，不是聊天上下文压缩或自动改文档命令。
 
-优先级：角色/阶段合法性 → 任务覆盖 → 风险下限 → 失败次数升级 → 当前Codex可用性与effort校验。
+解析顺序：角色/阶段合法性 → 任务类别 → 风险下限 → 实现失败升级 → 模型能力检查。high 至少 strong，critical 为 frontier；每两个有证据的实现失败提升一档，8 次停止。例如 high 编码在第 2 次实现失败后即升 frontier。环境失败、取消不计入升级；不自动重试。
 
-默认失败0–1维持当前档，2–3提升一档，4–5提升两档，6–7到frontier，8次停止。它是调用方传入的已证实失败计数，不是自动重试器；环境故障应先处理环境。high至少Sol，critical使用Astra。低成本模型不等于更低质量要求。
+## 查看能力与采用锁
 
-## 使用
+从基座根目录运行；以下 `../project` 是产品示例。
 
-从AGT根目录运行。以下project为示例，不会自动采用到已有产品。
-
-~~~bash
-# 当前模型与effort，不创建thread/turn
+```bash
 node adapters/codex/agt-models.mjs catalog
-
-# 只解析推荐；没有切换当前App聊天
 node adapters/codex/agt-models.mjs resolve \
-  --stage implementation --role frontend-implementer/base --task coding
-
-# 高风险小改动也不能落到Luna
+  --stage implementation --role backend-implementer/base --task unit-tests
 node adapters/codex/agt-models.mjs resolve \
-  --stage implementation --role backend-implementer/base \
-  --task coding --risk high
+  --stage control --role gatekeeper --task archive-execution
+```
 
-# test执行不需要Codex或模型清单
-node adapters/codex/agt-models.mjs resolve \
-  --stage verification --role quality/base --task test-execution
-~~~
+发现能力不创建推理 turn。采用后生成新锁，输出目录须存在，拒绝覆盖旧锁：
 
-用户明确采用后，生成新的版本化锁。输出目录应已存在；拒绝覆盖文件。approval是批准引用，不是绕过原阶段审批的授权凭据。
-
-~~~bash
+```bash
 node adapters/codex/agt-models.mjs lock \
-  --output ../project/.planning/agt/model-routing-v1.lock.json \
-  --approval DEC-model-routing-001
-~~~
+  --output ../project/.planning/agt/model-routing-v2.lock.json \
+  --approval DEC-model-routing-002
+```
 
-锁包括政策快照/hash、model/effort、发现时CLI版本/能力和批准引用。它与consumer-ai-web的产品Profile独立版本化，不修改已锁定的PROFILE.yaml，也不复制角色Prompt到产品。
+锁保存政策、hash、CLI 版本、模型能力与批准来源；不更改产品 Profile 或全局 Codex 配置。`approval` 是可追溯的批准引用，不能替代授权。已有 1.0.0 锁仍保留 5.6 模型绑定，也不自动得到新增任务类别；采用新策略须新建锁并更新产品引用，旧锁保留。
 
-根据 [任务包模板](../../templates/model-task.json) 准备真实的批准输入、范围、验收、风险和先前失败摘要，再预览：
+## 任务包与执行
 
-~~~bash
+按 [模板](../../templates/model-task.json) 填写稳定 `task_id`、明确 `objective`、输入路径、精确 `write_scope`、可观察 `acceptance`、`risk` 与具体 `risk_reason`。只读审查使用 `"read_only": true, "write_scope": []`。子任务按共同输入和验收组织，不为每次工具调用单独派发。输入相对产品 Git/worktree 根目录；传入子目录会统一归一到根目录。任务定义、范围、上下文或类别变化须使用新 ID，不能借复用 ID 覆盖旧尝试。
+
+预览不启动推理、不建立尝试记录：
+
+```bash
 node adapters/codex/agt-models.mjs launch \
-  --project ../project \
-  --lock ../project/.planning/agt/model-routing-v1.lock.json \
-  --packet ../project/.planning/current-task.json \
-  --task coding
-~~~
+  --project ../project --lock ../project/.planning/agt/model-routing-v2.lock.json \
+  --packet ../project/.planning/current-task.json --task unit-tests
+```
 
-默认dry-run，仅校验/输出配置。真正启动需加 --run；启动器从state/registry确认唯一活动角色，按锁定策略用参数数组运行：
+阶段任务从 state/registry 验证唯一活动角色，不接受任意角色覆盖。Quick 不依赖活动里程碑角色，使用已有 active Q 任务的分支、计划和批准范围：
 
-~~~text
-codex exec --model <selected-model> \
-  -c 'model_reasoning_effort="<selected-effort>"' -C <project> -
-~~~
+```bash
+node adapters/codex/agt-models.mjs dispatch \
+  --project ../project --lock ../project/.planning/agt/model-routing-v2.lock.json \
+  --packet ../project/.planning/current-task.json --task documentation \
+  --quick Q001-tidy-notes --role frontend-implementer/base
+```
 
-任务包走stdin，不拼入shell命令，不在预览中打印全部内容。Skill路径、职责、状态/上游检查、保留他人修改和验收要求都会传入执行者。启动器不会放宽sandbox、审批、网络权限，也不会修改state/registry。未知选项拒绝，不允许借透传参数覆盖已选模型。
+`dispatch` 做实时能力预检、保留一次待执行尝试，返回 `spawn` 对象。协调者必须将其中 `model`、`reasoning_effort`、`fork_turns: none`、任务名和 message 传给宿主原生子代理工具，等待结果，再登记真实 runtime ID。输出参数不代表代理已启动。若尚未启动、没有 runtime ID，用有证据的 `cancelled` 回执关闭本次分派尝试；已启动后的环境故障使用真实 ID 的 `environment_failure`。这不等于取消原 Quick/产品任务，也不能丢弃记录后假称成功。分派后的执行者只做限定任务，不递归派发；Quick 子任务引用责任角色定义，不启动或迁移里程碑角色。
 
-执行提示遵循[按需读取](../../core/role-contract.md#context-reading)：完整角色契约、当前产品入口、任务相关章节及必要依赖，历史按ID检索，模板使用时读取。`inputs`是定位入口，不保证已经列全依赖，也不是强制文件访问白名单；适配器不拦截后续文件读取。静态大小可用[计量工具](../../validators/measure-context.mjs)检查，不能当作已观测的模型输入或token账单。
+若使用 CLI，改用 `launch` 和相同参数，加 `--run`。CLI 参数数组显式指定模型与 effort，任务包经 stdin 传入，附 `--json` 采集事件；只读任务额外加 `--sandbox read-only`。不会热切换已打开的 App 主会话，也不会放宽权限。纯工具类别只返回执行指引，不查模型清单、不占用模型尝试。
 
-**这是新Codex会话，不是App当前主会话的热切换。** 实际模型未被运行时事件证实时输出actual_model=not_observed；不伪造切换成功。App工作可手动按推荐选择模型，或由支持model/effort覆写且已获委派授权的宿主使用原生子任务。此版本不自动创建子代理、不托管当前聊天、不自动办理角色迁移。bootstrap/control的resolve用于推荐；launch仅支持已有active项目身份，不替代初始化/守门器激活。
+每项记录放在 `.planning/agt/model-runs/<task_id>.json`。稳定 ID 只允许字母、数字、下划线和短横线，最多 96 字符。状态查看：
 
-## Codex更新后的处理
+```bash
+node adapters/codex/agt-models.mjs status --project ../project --task-id TASK-001
+```
 
-每次launch重新运行Codex --version及app-server model/list，含分页、超时与协议错误处理。即使CLI版本没变，也检查服务端清单变化。可主动检查：
+## 回执、失败与运行观测
 
-~~~bash
+协调者依据产物和验收证据判定结果。回执示例（使用真实文件、尝试号和运行 ID）：
+
+```json
+{
+  "attempt": 1,
+  "outcome": "pass",
+  "summary": "已核对保留约束、引用和未解决事项；证据见审查记录",
+  "evidence": [".planning/evidence/TASK-001-review.md"],
+  "runtime_id": "真实子会话 ID",
+  "runtime_log": "/实际位置/对应子会话的运行时事件.jsonl"
+}
+```
+
+`runtime_log` 可选；只有取得真实日志才提供，允许显式指定项目外的本地 Codex 运行日志。必须匹配同一 runtime ID。原生非取消回执要求真实 ID；CLI 通常从执行事件取得 ID。登记：
+
+```bash
+node adapters/codex/agt-models.mjs record --project ../project \
+  --task-id TASK-001 --receipt ../project/.planning/receipt.json
+```
+
+结果为 `pass`、`implementation_failure`、`environment_failure` 或 `cancelled`；都需摘要与项目内证据文件。工具将原始证据按 hash 保存快照，后续修改源文件不会抹掉失败证据。CLI 退出码 0 只进入待复核状态，非零须分类；进程未完成、已知模型/effort 不匹配不能通过。待结案尝试不能重复分派，已完成任务不能复用。新尝试自动携带历史失败与证据指针，并从记录累计升级，不信任任务包里自填的 `prior_attempts`。`--failures` 仅用于 `resolve` 或旧格式只读预览，不能覆盖正式任务历史。
+
+运行时日志有 model/effort 才记观测值；只有 usage 时不能据此推断模型。补充日志不能擦除已有不匹配观测。`actual_model: not_observed`、usage 为 null 表示未观测，不等于已验证符合路由。模型观测表示运行时配置，不是提供方或账单认证；usage 仅统计该日志对应会话，不包含未观测的协调者、其他子会话和返工。回执不能用手填 actual_model/usage 冒充运行证据。
+
+CLI 的事件和 stderr 保存在同目录，文件权限 0600；可能包含任务内容，默认不向终端重复输出全文。任务记录、日志和证据沿产品的归档规则管理，不把它们当成默认全文上下文。`inputs` 只是定位入口，不是访问白名单；原生执行的只读/写入范围由宿主权限和任务契约约束，适配器不拦截每次读写。记录是协调工具，不是独立的防篡改审计平台。
+
+## 更新与验证
+
+模型 `launch`（含预览）、`dispatch` 和 `check-updates` 实时查询 Codex 版本和分页 model/list，核对策略差异、模型/effort 移除及 upgrade 提示。旧锁不静默改写、不可用不自动回退：
+
+```bash
 node adapters/codex/agt-models.mjs check-updates \
-  --lock ../project/.planning/agt/model-routing-v1.lock.json
-~~~
-
-输出CLI版本变化、策略差异、新增/移除模型、effort变化和upgrade候选。模型/effort失效时退出码2并阻止launch；无效协议或发现失败退出码1。不静默改成“latest”，也不在发现失败后以旧缓存声称可用。
-
-本次1.1.0更新将economy从GPT-5.6 Luna改为GPT-6 Luna，balanced从GPT-5.6 Terra改为GPT-6.1 Sol / medium，strong从GPT-5.6 Sol改为GPT-6.1 Sol / high。frontier继续使用GPT-6 Astra / high。已有1.0.0锁仍按原模型解析，中央策略更新本身不改写旧锁；旧模型不再出现在当前清单时按既有规则阻塞。
-
-策略允许显式配置`ultra`，但必须由当前Codex `model/list`确认该模型支持。本机0.159.3清单中的GPT-6.1 Sol和GPT-6 Astra支持`ultra`，GPT-6 Luna不支持；默认档位继续使用medium/high。API模型页的effort列表不能代替Codex运行时能力。
-
-更新流程：
-
-1. 查询当前清单、核实官方能力/成本；不能按名称排序猜最强或最便宜。
-2. 同一组代表任务比较质量、返工和总用量：普通UI、DTO转换、权限错误态、SSR异常、契约验证和文档整理至少各一例。
-3. 修改中央policy的对应binding与version/verified_at；用--policy candidate.json预检。新模型必须支持既有effort，否则明确修改候选并重新比较，不静默降级。
-4. 用户确认后以lock写入model-routing-v2.lock.json，后续launch显式采用新锁。旧锁不覆盖；回滚时选择旧锁，前提是旧模型仍可用。
-
-**自动检测，受控调整**：没有后台计划任务，没有自动改全局 ~/.codex/config.toml。官方upgrade提示不等于质量/成本等价保证。全自动迁移需要另行定义成本上限、固定评测门槛和回滚条件。
-
-## 测试与边界
-
-~~~bash
-node --test tests/model-routing.test.mjs
+  --lock ../project/.planning/agt/model-routing-v2.lock.json
+node --test tests/model-routing.test.mjs tests/model-execution.test.mjs tests/model-dispatch.test.mjs
 ./validators/validate-profile.sh profiles/consumer-ai-web/PROFILE.yaml
-~~~
+```
 
---inventory允许resolve/lock/check-updates使用规范化JSON快照，用于离线评审/测试；launch不能使用离线清单，始终实时预检。--codex指定另一安装位置；测试使用本地替身，不发付费模型请求。
+`check-updates` 能力失效退出码 2；协议/参数错误退出码 1。`--inventory` 只供 resolve/lock/check-updates 离线评审，launch/dispatch 必须实时预检。`--codex` 可指定安装位置，回归测试使用本地替身，不证明真实模型质量或节省比例。策略可显式使用 `ultra`，但必须经当前清单确认支持；默认仍是 medium/high。
 
-40项自动化测试通过，覆盖策略/风险映射、bounded escalation、模型/effort阻塞、元数据分页/错误/超时、锁不可覆盖、旧绑定兼容、ultra能力限制、状态角色不匹配、路径边界、默认dry-run、所选model/effort进入执行参数和无权限提升参数。实机CLI 0.159.3仅做模型发现和1,128组角色/任务/风险/失败次数路由检查，以及ultra能力核对；未运行真实收费编码任务。替身验证启动链路，**不证明各模型对实际项目的质量或节省比例**。
+新绑定先核实官方能力与成本，再对同组代表任务比较质量、返工和总消耗，按用户授权采用新版本锁。当前没有后台守护进程、账单预算熔断或全局 token 上限；不能用 API 标价推算 Codex 订阅扣费。
 
-当前没有账单/usage采集、预算熔断或持久化失败计数器；总成本需含主会话、执行者、重试与返工，缺usage标unknown。不能用API价格计算Codex订阅扣费。将来模型调整只改中央映射，不必逐个重写角色。
+## 官方依据
 
-## 官方依据（2026-10-05核验）
+2026-10-05 核验的模型资料及宿主能力说明：
 
-- [Codex子代理模型与effort](https://learn.chatgpt.com/docs/agent-configuration/subagents)：工作可选不同模型，未指定时可能继承；分派本身也消耗tokens。
-- [Codex App Server model/list](https://learn.chatgpt.com/docs/app-server#list-models-modellist)：运行时模型、effort、分页和upgrade元数据。
-- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)、[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)、[GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)：能力定位；API参数与Codex可用性分别核实。
+- [Codex 子代理](https://learn.chatgpt.com/docs/agent-configuration/subagents)：显式 model/effort 与最小上下文；未指定时可能继承。
+- [Codex App Server](https://learn.chatgpt.com/docs/app-server#list-models-modellist)：模型、effort、分页和 upgrade 元数据。
+- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)、[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)、[GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)：API 能力资料不能代替 Codex 运行时可用性检查。
 
-任务分工是AGT工程建议，不是OpenAI对每类任务结果的保证。路由预检以当前Codex返回的模型清单为准；清单中的条目不是实际调用成功或账号权益的证明。
+分工是 AGT 工程策略，不是模型结果保证。能力清单也不证明一次实际调用已经成功。

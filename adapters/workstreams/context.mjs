@@ -3,6 +3,7 @@ import { existsSync, readFileSync, realpathSync, lstatSync } from "node:fs";
 import { resolve, isAbsolute } from "node:path";
 
 export const CONFIG = ".planning/agt/workstreams.json";
+export const LOCAL_CONFIG = ".agt/workstreams.json";
 export const assert = (condition, message) => { if (!condition) throw Error(message); };
 export function git(cwd, args, optional = false) {
   const r = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
@@ -34,13 +35,15 @@ export function inside(root, path) {
   }
   return current;
 }
+export function parentId(config) { return config.parent?.id || config.milestone; }
 export function streamRoot(milestone, id) {
-  assert(/^M[0-9]{3}$/.test(milestone), "Milestone must be M followed by three digits");
+  assert(/^(?:M[0-9]{3}|Q[0-9]{3,}-[a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/.test(milestone), "Parent must be a milestone or Quick ID");
   assert(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id), "Workstream ID must use lowercase kebab-case");
-  return `.planning/milestones/${milestone}/workstreams/${id}`;
+  return `.planning/${milestone.startsWith("Q") ? "quick" : "milestones"}/${milestone}/workstreams/${id}`;
 }
 export function validateConfig(config) {
-  assert(config?.schema_version === 1 && config.mode === "workstreams", "Invalid workstream configuration");
+  assert([1, 2].includes(config?.schema_version) && config.mode === "workstreams", "Invalid workstream configuration");
+  assert([undefined, "local", "branch"].includes(config.planning_storage), "Unsupported planning storage");
   assert(config.profile?.workflow?.workstreams?.supported === true && config.profile.workflow.workstreams.opt_in === true, "Locked Profile does not support opt-in workstreams");
   assert(config.profile.workflow.workstreams.artifact_root === ".planning/milestones/{milestone}/workstreams/{workstream}", "Unsupported artifact root");
   assert(typeof config.target === "string" && config.target && !config.target.startsWith("-"), "Missing integration target");
@@ -49,18 +52,24 @@ export function validateConfig(config) {
     assert(Array.isArray(stage.allowed_roles) && Array.isArray(stage.transitions) && Array.isArray(stage.required_artifacts), "Invalid Profile stage");
     for (const path of stage.required_artifacts) assert(safePath(path).startsWith(".planning/milestones/{milestone}/"), "Workstream artifacts must be milestone-relative");
   }
-  streamRoot(config.milestone, "check");
+  if (config.schema_version === 2) {
+    const p = config.parent;
+    assert(config.planning_storage === "branch" && p && ["milestone", "quick"].includes(p.kind), "Branch workstreams require a scoped parent");
+    assert(p.branch === config.target && typeof p.base_commit === "string" && /^[a-f0-9]{40,64}$/.test(p.base_commit), "Parent target/base mismatch");
+    assert(p.kind === "milestone" ? /^M[0-9]{3}$/.test(p.id) : /^Q[0-9]{3,}-/.test(p.id), "Parent kind/ID mismatch");
+    assert(config.target === (p.kind === "milestone" ? `milestone/${p.id}` : `quick/${p.id}`), "Workstream target must be its parent branch");
+  }
+  streamRoot(parentId(config), "check");
   return config;
 }
-export function artifacts(profile, milestone, id, stage) {
-  const prefix = `.planning/milestones/${milestone}/`;
-  const root = id ? streamRoot(milestone, id) : prefix.slice(0, -1);
-  const selected = profile.workflow.stages.find(s => s.id === stage);
+export function artifacts(profile, parent, id, stage) {
+  const root = id ? streamRoot(parent, id) : `.planning/${parent.startsWith("Q") ? "quick" : "milestones"}/${parent}`;
+  const selected = stage === "final" ? { required_artifacts: profile.workflow.final_artifacts || [] } : profile.workflow.stages.find(s => s.id === stage);
   assert(selected, `Unknown stage: ${stage}`);
   return selected.required_artifacts.map(p => {
-    const path = p.replaceAll("{milestone}", milestone);
-    assert(path.startsWith(prefix), `Artifact outside milestone: ${p}`);
-    return safePath(`${root}/${path.slice(prefix.length)}`);
+    const prefix = ".planning/milestones/{milestone}/";
+    assert(p.startsWith(prefix), `Artifact outside milestone: ${p}`);
+    return safePath(`${root}/${p.slice(prefix.length)}`);
   });
 }
 export function worktrees(project) {
@@ -77,20 +86,22 @@ export function worktrees(project) {
 export function resolveContext(project) {
   const root = git(project, ["rev-parse", "--show-toplevel"], true) || resolve(project);
   const branch = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], true);
-  const configPath = inside(root, CONFIG);
+  assert(!(existsSync(inside(root, CONFIG)) && existsSync(inside(root, LOCAL_CONFIG))), "Conflicting legacy/local workstream configurations");
+  const configPath = inside(root, existsSync(inside(root, LOCAL_CONFIG)) ? LOCAL_CONFIG : CONFIG);
   if (!existsSync(configPath)) {
     assert(!branch?.startsWith("agt/"), "Workstream configuration missing; refusing project-state fallback");
     return { mode: "single", project: root, state: ".planning/workflow/state.yaml", agents: ".planning/agt/agents.yaml", history: ".planning/workflow/history.yaml" };
   }
   const config = validateConfig(readJson(configPath));
-  const prefix = `agt/${config.milestone}/`;
+  assert(config.planning_storage !== "local" || existsSync(inside(root, ".agt/delivery.json")), "Local workstreams require delivery policy");
+  const parent = parentId(config), prefix = `agt/${parent}/`;
   if (branch === config.target) return { mode: "coordinator", project: root, config, state: ".planning/workflow/state.yaml", agents: ".planning/agt/agents.yaml", history: ".planning/workflow/history.yaml" };
   assert(branch?.startsWith(prefix), "No workstream binding for current branch (or detached HEAD); choose its worktree explicitly");
-  const id = branch.slice(prefix.length), artifactRoot = streamRoot(config.milestone, id);
+  const id = branch.slice(prefix.length), artifactRoot = streamRoot(parent, id);
   const metadata = readJson(inside(root, `${artifactRoot}/workstream.json`));
-  assert(metadata.branch === branch && metadata.id === id && metadata.milestone === config.milestone && metadata.target === config.target, "Workstream binding mismatch");
+  assert(metadata.branch === branch && metadata.id === id && metadata.milestone === config.milestone && (config.schema_version !== 2 || metadata.parent?.id === parent) && metadata.target === config.target, "Workstream binding mismatch");
   const state = `${artifactRoot}/workflow/state.yaml`;
   const value = readYaml(inside(root, state));
   assert(value.workstream === id && value.milestone === config.milestone && value.profile === `${config.profile.id}@${config.profile.version}`, "Workstream state scope mismatch");
-  return { mode: "workstream", project: root, config, id, metadata, artifact_root: artifactRoot, state, agents: `${artifactRoot}/workflow/agents.yaml`, history: `${artifactRoot}/workflow/history.yaml`, required_artifacts: artifacts(config.profile, config.milestone, id, value.stage) };
+  return { mode: "workstream", project: root, config, id, metadata, artifact_root: artifactRoot, state, agents: `${artifactRoot}/workflow/agents.yaml`, history: `${artifactRoot}/workflow/history.yaml`, required_artifacts: artifacts(config.profile, parent, id, value.stage) };
 }

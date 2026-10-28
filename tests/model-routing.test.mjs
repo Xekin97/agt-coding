@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { readJson, validatePolicy, normalizeCatalog, resolveRoute, makeLock, validateLock, checkUpdates, writeNewLock, discoverModels, readActiveState, validatePacket, launchSpec } from "../adapters/codex/model-router.mjs";
+import { recordOutcome } from "../adapters/codex/model-execution.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const policy = readJson(join(root, "models/codex-balanced.json"));
@@ -30,6 +31,19 @@ test("failure escalation is bounded and monotonic", () => {
   ["gpt-6-luna","medium"],["gpt-6.1-sol","medium"],["gpt-6.1-sol","high"],["gpt-6-astra","high"]
  ]);
  for(const failures of [-1,1.5,8,100])assert.throws(()=>route({failures}),/ceiling/);
+});
+test("failure escalation starts at the risk floor for coding and unit tests", () => {
+ for (const task of ["coding", "unit-tests"]) {
+  assert.deepEqual([0,1,2,4,6].map(failures => route({task,risk:"high",failures}).tier), ["strong","strong","frontier","frontier","frontier"]);
+  assert.equal(route({task,risk:"critical",failures:2}).tier,"frontier");
+ }
+});
+test("document planning/review and archive execution are separate from drafting at every stage", () => {
+ for (const [role,r] of Object.entries(policy.roles)) {
+  for (const task of ["document-plan","document-review"]) assert.equal(resolveRoute(policy,catalog,{stage:r.stage,role,task}).tier,"strong");
+  assert.equal(resolveRoute(policy,catalog,{stage:r.stage,role,task:"documentation"}).tier,"economy");
+  assert.equal(resolveRoute(policy,null,{stage:r.stage,role,task:"archive-execution"}).mode,"tool");
+ }
 });
 test("tool commands need no model/catalog", () => assert.equal(resolveRoute(policy,null,{stage:"implementation",role:"frontend-implementer/base",task:"test-execution"}).mode,"tool"));
 test("unknown role, task, risk and stage mismatch rejected", () => {
@@ -130,18 +144,23 @@ test("CLI validates state and emits/executes exact selected model without editin
  writeFileSync(join(project,".planning/workflow/state.yaml"),state);writeFileSync(join(project,".planning/agt/agents.yaml"),registry);
  assert.equal(readActiveState(project).active_agent,"frontend-bob");
  const lockFile=join(project,"lock.json");writeNewLock(lockFile,makeLock(policy,catalog,"fixture-user-approval"));const originalLock=readFileSync(lockFile,"utf8");
- const packetFile=join(project,"packet.json");writeFileSync(packetFile,JSON.stringify({objective:"Bounded fixture",inputs:["approved.md"],write_scope:["frontend/view.vue"],acceptance:["fixture assertion"],risk:"normal"}));
+ writeFileSync(join(project,"approved.md"),"Approved bounded fixture; simulated outcomes below\n");
+ const packetFile=join(project,"packet.json"),packet={task_id:"fixture-coding",risk_reason:"Isolated deterministic fixture",objective:"Bounded fixture",inputs:["approved.md"],write_scope:["frontend/view.vue"],acceptance:["fixture assertion"],risk:"normal"};writeFileSync(packetFile,JSON.stringify(packet));
  const output=join(project,"executed.json");
  const args=[join(root,"adapters/codex/agt-models.mjs"),"launch","--project",project,"--lock",lockFile,"--packet",packetFile,"--task","coding","--codex",stub];
  let r=spawnSync(process.execPath,args,{encoding:"utf8",env:{...process.env,AGT_TEST_OUTPUT:output}});assert.equal(r.status,0,r.stderr);assert.equal(existsSync(output),false);assert.equal(JSON.parse(r.stdout).mode,"dry-run");
  r=spawnSync(process.execPath,[...args,"--run"],{encoding:"utf8",env:{...process.env,AGT_TEST_OUTPUT:output}});
  assert.equal(r.status,0,r.stderr);assert.equal(readJson(output).args[2],"gpt-6-luna");assert.match(readJson(output).input,/\$agt-frontend-implement/);
+ assert.equal(JSON.parse(r.stdout).attempts[0].outcome,null);
+ assert.deepEqual(JSON.parse(r.stdout).attempts[0].usage,{input_tokens:100,cached_input_tokens:60,output_tokens:20});
+ recordOutcome(project,packet.task_id,{attempt:1,outcome:"implementation_failure",summary:"Simulated failed acceptance after successful process",evidence:["approved.md"]});
  r=spawnSync(process.execPath,[...args,"--run"],{encoding:"utf8",env:{...process.env,AGT_TEST_OUTPUT:output,AGT_TEST_EXIT:"17"}});assert.equal(r.status,17);
  assert.equal(readFileSync(lockFile,"utf8"),originalLock);assert.equal(readFileSync(join(project,".planning/workflow/state.yaml"),"utf8"),state);
  const ultraPolicy=clone(policy),ultraCatalog=clone(catalog);ultraPolicy.bindings.strong.effort="ultra";
  ultraCatalog.models.find(m=>m.model==="gpt-6.1-sol").efforts.push("ultra");
  const ultraLock=join(project,"ultra.lock.json");writeNewLock(ultraLock,makeLock(ultraPolicy,ultraCatalog,"explicit-ultra-approval"));
  const ultraArgs=[...args];ultraArgs[ultraArgs.indexOf("--lock")+1]=ultraLock;ultraArgs[ultraArgs.indexOf("--task")+1]="plan";
+ writeFileSync(packetFile,JSON.stringify({...packet,task_id:"fixture-plan"}));
  r=spawnSync(process.execPath,[...ultraArgs,"--run"],{encoding:"utf8",env:{...process.env,AGT_TEST_OUTPUT:output}});
  assert.equal(r.status,0,r.stderr);assert.deepEqual(readJson(output).args.slice(0,5),["exec","--model","gpt-6.1-sol","-c",'model_reasoning_effort="ultra"']);
  assert.equal(readFileSync(lockFile,"utf8"),originalLock);assert.equal(readFileSync(join(project,".planning/workflow/state.yaml"),"utf8"),state);

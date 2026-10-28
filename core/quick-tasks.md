@@ -1,107 +1,47 @@
 # 有界任务：AGT Quick
 
-Quick 是独立于里程碑阶段的执行粒度。用户提出明确的小修复、小增强、测试、配置或文档任务时，可直接走 `$agt-quick`；不要求用户先创建里程碑、激活整套角色或逐阶段批准。借鉴 GSD Quick 的短计划、可恢复记录和针对性验证，使用 AGT 自己的政策、证据与权限。
+Quick 用于一个明确目标的小修复、小增强、测试、配置或文档任务。用户明确请求实施即授权范围内短计划、执行和针对性验证，无需新建/重开里程碑；已在执行任务中的一步继续原任务。涉及未确认产品/设计/API/数据决定时先解决该决定，不借 Quick 绕过接受条件。
 
-## 选择粒度
+## 分支与采用
 
-| 工作 | 路径 |
-|---|---|
-| 一个明确目标，可写出可观察的完成条件，依赖与改动范围可界定 | Quick：短计划 → 实现 → 针对性验证 → 文档收敛与上下文归档 → 完成 |
-| 已在执行任务中的一个步骤、普通问答或只读定位 | 继续原任务；不为每次编辑、命令或聊天再建 Quick |
-| 多个独立需求需在不同窗口推进完整设计/实现/验收 | 已采用的 workstream 流程 |
-| 新产品方向、跨模块范围未定、重要业务/设计/数据/API 决策尚未确认 | 先澄清受影响决定；必要时升级到已有责任阶段或需求流程 |
-| 新一轮整体产品交付 | 用户明确授权后启动里程碑 |
+产品采用 `.planning/agt/quick-tasks.json`，记录 `schema_version: 1`、`enabled: true` 和采用来源；新交付同时采用 delivery schema 2、`planning_storage: branch`。在干净 main 上 create 会建立 `quick/<QID-slug>`；也可由 delivery start 预建对应分支。记录实际起点提交和继承的已交付基线，随后 start 执行。
 
-粒度取决于依赖、决策与验收边界，不按行数、文件数或工时硬切。小任务也可能跨前后端；只要依赖已明确、能整体验证，就不必扩成完整里程碑。用户要求实施即授权范围内的合理实现与验证，无歧义时不再要求批准短计划。重要新选择仍按共同契约澄清；不能借 Quick 绕过现有政策、冻结证据或必需的人工验收。
+Quick 可以引用已封闭里程碑，但所有新正文、设计、测试增量都在本任务范围，不回写封闭目录。后续开发沿继承关系读取这些增量，不复制或重写前序里程碑。任务级责任不改变里程碑原阶段或活动角色。
 
-## 采用与状态
-
-产品显式采用本协议后，记录 `.planning/agt/quick-tasks.json`：`schema_version: 1`、`enabled: true`、`adoption_source`。既有 Profile 2.0/2.1 可通过有版本来源的增量采用，不自动升级 Profile、模型锁或并行模式。
-
-每个任务仅一份 `.planning/quick/Q001-slug/task.json` 真源，结构见[模板](../templates/quick-task.json)。包含用户请求、目标、实际执行者、相关里程碑、约束来源、明确文件范围、短计划、验收项、检查记录、当前结果与下一步。每项验收指定 `verification: command|inspection|manual`，命令不能代替必需的人工接受。关联 M002 仅表示参考已交付基线，不把新任务算成 M002 旧验收的一部分。可不关联里程碑。
-
-状态为 `planned → active → complete`；`blocked` 保留阻塞和下一步，解决后由 `start --reason` 恢复；`escalated` 保留升级原因与目标，不能自动创建里程碑或重开原阶段。`cancelled` 只用于用户取消。已完成记录冻结；后续修正另建任务并引用它。`list` 从任务记录生成摘要，不维护第二份 STATE/ROADMAP 或累计全文索引。`show`、`resume` 只读，不因查看恢复旧任务。
-
-Quick 由当前会话协调，按下述文档责任分工处理受影响范围，不修改里程碑的 `stage/status/active_role/active_agent/last_transition` 或审批历史。`active_role: null` 不阻止明确授权的 Quick。任务内引用现有专业角色定义、约束与批准来源；有授权和运行条件时委派对应 agent，否则明确记录当前会话按责任串行执行，不冒充独立验收或已激活的里程碑角色。需要的重要决定在任务内澄清，超出有界范围才升级受影响部分。Quick 不自行启动额外模型、切换模型锁、提交或推送。
-
-工具支持普通 Git worktree，并将任务绑定到创建分支；迁移分支需用户明确选择、核对代码和已有结果后再处理。目前采用了 workstreams 的产品应在原需求流程中执行有界步骤；Quick 写命令会明确拒绝该模式，不能绕过其写入租约或借协调分支改需求。增加任务粒度不隐式增加第二套并行调度器。
+若任务确需独立需求并行，可在 Quick 父分支启用 workstream；子分支普通合并回 Quick，父 Quick 统一整理、验证并 squash 进入 main。子作用域使用 workstream 状态和租约，不能作为父 Quick 写入。小任务不默认拆分 workstream。
 
 ## 变更回落与文档责任
 
-任务记录用于协调、保存差异和证据入口；产品、设计、技术等当前正文继续承担各自的权威定义。Quick 缩短执行链，不能让变更仅存在于源码或任务摘要里。
+任务记录使用现有模板，声明 title/request/executor、sources、write_scope、plan、acceptance，以及 product/design/technical/verification/handoff 的 document_impacts 和 document_tasks。只建立受影响责任项；各项说明角色、正文路径、改动、依赖及必要批准来源。
 
-每个任务的 `document_impacts` 必须逐项评估 product、design、technical、verification、handoff，注明 affected/none 及核对依据。模板中的理由必须替换成实际判断。受影响项建立 `document_tasks`，至少声明 ID、责任角色、正式文档路径、具体变更、上游依赖、是否需要确认及确认来源；对应路径加入 `write_scope`。无影响可说明原因，不强制制造文档改动。
+产品、设计和技术正文先收敛，再实现和验证，最后 QA/交接回写结果。任务摘要不能代替正文。代码与已确认要求不一致时记录差异，不能为了文档匹配实现而改写需求。有效规则被替代时，在本任务记录对继承基线的明确修改。
 
-| 变更影响 | 责任角色 | 回落目标 |
-|---|---|---|
-| 产品行为、业务规则、范围或验收变化 | product/to-c 或适用产品角色 | 当前产品主文档、能力与验收条目 |
-| 界面、交互、视觉、固定文案变化 | uiux/base | 当前设计规格、原型、copy.json 及相关设计来源 |
-| 数据、API、错误状态、架构或实现约束变化 | dba/base、backend-architect/base、frontend-architect/base，按实际责任拆项 | 当前数据模型/迁移方案、API 与前后端技术正文 |
-| 验证范围、有效结论或保留边界变化 | quality/base | 当前 QA 报告、矩阵与回归入口 |
-| 实现交接或默认读取入口变化 | 实现/QA 责任角色；协调入口由 gatekeeper | 对应当前交接与有效来源指针 |
+`dispatch --document <ID>` 提供责任任务包。已授权时可交对应专业 agent，也可读取角色定义后串行处理并记录真实执行者；不要虚构独立 QA。模型调度沿用已采用契约，已分派执行者不递归分派。
 
-产品 → 设计 → 技术 → 验证 → 交接按受影响项建立依赖；无影响的范围直接跳过，同类技术角色按实际 API/数据依赖连接。`dispatch --document DOC1` 输出该责任项的角色定义、输入、原件定位、写入范围、上游与交付要求，不启动 agent。协调者按此任务包调用已授权角色，或在当前会话完整读取适用角色定义后按责任串行执行；不能只换一个角色标签就宣称完成评审。
+## 执行与验证
 
-责任角色直接更新正式文档，返回实际执行者、执行方式、当前结论、决定来源与证据。`reconcile` 登记已发生的处理，并绑定正文和上游版本；serial 必须使用当前实际执行者，delegated 还需真实 runtime ID 和授权来源。该回执不自动构成独立评审或用户接受。涉及待确认的新行为时保持对应项未完成；用户原请求已明确的行为可引用 `task.request`，无需重复批准。
-
-改写前由工具保存本批原件定位：与任务起始 Git 版本一致的正文记录 commit/path/SHA；未提交原文仅保存该文件的一份快照。已有批准按原版本解释，当前正文更新版本/范围并注明 Q ID 及决定来源。禁止改写旧审批、决策和原始失败证据；已完成 M002 的用户接受不延伸到 Quick 的新行为。若文档是真正冻结的交付副本，应在正常的当前专业文档位置建立新版本并更新当前入口，不能用 Quick 摘要冒充正式正文。
-
-`show` 输出每项 `documents_now` 的责任角色及缺口。上游产品/设计/技术正文未回落时，`verify/observe` 拒绝登记下游验收；执行者也应在实现前处理这些缺口。`finish/validate` 同时核对全部责任项和验收项。正式正文未变、缺少决定来源、缺少责任回执、上游/代码/证据已变都不能通过。QA/交接仅回写既有测试结果时无需重跑未变化代码的检查，但相关正文仍须有当前责任回执。
-
-工具只能检查声明、依赖、版本、真实文件回写和进程结果，不能推断遗漏的业务影响或证明文案语义正确；责任角色须核对实际 diff 与全文的一致性。发生新影响时先 `revise` 责任映射，再处理新范围，不把范围扩大藏在最终摘要里。
-
-## 执行与恢复
-
-1. 先读项目清单、锁定契约、当前状态/交接及适用政策，再按需读相关代码和来源。使用精确文件范围；新文件也列路径。记录开始时分支、HEAD 和范围内已有修改，保留其他人的工作。
-2. 直接从用户请求提炼简短计划、稳定验收 ID 和文档影响/责任映射。只有会影响结果的缺失信息才询问。模板中的 `milestone` 是参考，`sources` 为当前约束/设计/缺陷依据。
-3. 用 `create --input <任务JSON>` 创建记录，`start` 后执行。源代码和专业文档由执行者修改，工具只管理记录和显式检查。需要中断时用 `checkpoint --summary <已做内容> --next <具体下一步>` 就地保存进度；恢复不凭泛泛的“继续实施”猜测。任务范围改变时用 `revise` 更新计划并撤销旧验证的当前效力，保留原计划、验收和历史证据。
-4. 先按受影响的责任项回落上游产品/设计/技术正文，再实现并运行适用的开发检查与行为回归；界面任务遵守设计来源及浏览器验证，不能只凭构建通过。纯文案/文档可采用检查或人工核对，不强制跑整站测试。`verify` 执行明确的 argv 命令，`observe` 登记实际检查/人工观察；必须区分观察者与独立验收。随后由 QA/交接责任项回写有效结果与边界。
-5. 按下节整理本批正文、遗留事项和证据入口，执行 `compact --input <整理回执JSON>` 后才能 `finish`。每项验收必须有当前范围版本的通过证据；必需验收的 FAIL、NOT_RUN、待人工接受不算通过。证据、范围、计划、责任回执变化使已有验证或整理回执失效，按缺口重新处理；不重复运行与正文整理无关的应用检查。
-6. 默认通过 `show/resume` 读取精简视图及有关当前来源；指定问题才使用 `--history` 或证据指针展开原件。已有任务优先恢复，避免重复创建；已完成任务保持冻结。
-
-任务完成、用户接受、提交和发布分别记录/报告。用户已要求提交时，只暂存本任务明确文件并检查混入修改，按可审阅范围原子提交，提交消息引用任务 ID；推送与部署依据对应授权。无需为了把自身提交 SHA 写回记录而反复提交。
+1. 恢复已有任务优先使用 list/show/resume，核对实际分支、范围、状态和未提交工作；不为同一未完成工作重复建任务。
+2. create/start 登记短计划和可观察验收。普通执行步骤不新增审批；重要未确认选择仍需确认。
+3. 各责任角色更新本任务正文，以 reconcile 登记实际完成结果。依赖未完成则相关下游暂停，不阻止无关工作。
+4. verify 执行明确 argv，observe 登记实际人工/浏览器检查；记录适用代码/产物版本、结果及边界。必需验收的 FAIL、NOT_RUN 和待接受不能算通过。
+5. 实际范围改变用 revise 更新计划，重验受影响行为。删除旧日志、修复链接只做资料完整性检查，不使无关业务测试反复失效。
+6. 各角色整理后 compact，交付负责人 review，finish 保存最终结论。任务完成、用户接受、已提交、已合并、已发布分别报告。
 
 ## 上下文收尾与归档
 
-每个 Quick 在完成前执行一次本任务范围的[语义整理](./document-maintenance.md#6-上下文压缩的执行编排)。任务小且正文已简洁时，记录实际核对依据即可；不为凑压缩比例改写无关文档，也不扫描或重新总结全部里程碑历史。
+此处“归档”指语义整理，不生成压缩包，不要求永久保存修复过程。按[整理协议](./document-maintenance.md#6-上下文压缩的执行编排)处理本任务范围：
 
-整理依据当前正式正文及本批原始证据增量修订，不把上次摘要作为唯一输入反复压缩。
+- 当前正文保留本轮有效规则、设计、实现说明、最终测试、必要接受依据和未解决事项。
+- 删除已修复且验证通过 bug 的过程记录、旧失败日志/截图、废弃方案、过期交接和重复说明。保留需要的工程回归测试，不附带历史 bug 叙事。
+- 混合文件先提取有效内容；现有压缩包仅提取独有有效内容后删除，不另建恢复包/索引。
+- compact 登记 outcome、rationale、verification_scope、limitations、decisions、retained_items 和各 document 责任的 consolidated/already_concise 结果；它不自动改写文档。
+- finish 使用已核对 outcome 和当前验收/责任/资料结果。合法清理后不再要求已废弃的快照或失败原件存在，完成记录指向保留的最终依据。
+- 完成并交付后任务封闭。新增变化创建后续任务；存量未清理问题仅在明确的一次性整改范围处理，不能把历史任务普遍改为可写。
 
-1. **责任角色整理正式正文**：产品/设计/技术保留当前行为、约束、决定原因及适用版本；QA 合并重复测试轮次，保留有效结果、未覆盖项、回归入口；实现/交接清除过期下一步，保留问题 ID、最终修改、失败原因与处理证据。只回写本批允许路径。正文完成后再 `reconcile`，不能只缩短任务摘要。
-2. **协调者汇合当前结论**：`compact` 输入结果、原因、验证范围、限制、决定来源和遗留事项，逐项确认 `document_tasks` 的正文已整理或本就简洁。它登记执行者已完成的语义检查，不自动生成专业结论。当前任务必需验收尚未完成时不能靠转为遗留项绕过；范围外的保留事项要有稳定 ID、证据及下一动作。重新整理时，先前遗留 ID 要继续保留，或用 `resolved_items` 给出已解决/替代/取消的证据。
-3. **历史退出默认读取**：完整任务记录仍原地保存历次计划、检查和回执；命令原始输出留在 `check-N.json`。工具登记观察/责任回执时按内容摘要保存证据快照，同一内容只保存一次，避免后续正文更新使旧失败证据丢失。正式正文的最初版本仍按基线 commit/path/SHA 或唯一原件快照恢复。归档通过按需读取实现，不生成压缩包、不删除原件、不复制一套任务状态。
-4. **检查收尾**：`finish/validate` 同时检查业务验收、文档回落及 `compaction_now`。整理缺失或过期、原件无法按摘要恢复、实际接续检查失败，都不能完成。`finish` 使用已核对的 `outcome`，无需再写另一份结果；若传 `--summary` 必须相同。整理完全相同的输入不追加事件、快照或改写时间。
+show/resume 默认给出当前结论、限制、开放事项、有效来源和下一步。历史只在针对性问题需要时查询 Git，不为每轮维护永久过程档案。独立接续未执行标 NOT_RUN；静态完整性不冒充语义正确或独立 QA。
 
-`show/resume` 默认输出当前计划/进度（仅未完成任务）、结论、限制、遗留项、最新验收证据指针、责任缺口和历史入口，不返回累积检查/回执/旧计划。写命令的 CLI 输出也使用该视图。过期整理带 `current: false` 和具体缺口，不能当作当前结论；已完成任务的原交付状态与现在的证据有效性分别显示。历史用 `show --history` 定位，再按路径读取本次需要的原件；不要默认直接全文读 `task.json`。
+## 命令
 
-三个结果分别报告：**语义检查**由实际执行者记录；**静态完整性**由版本与原件核验；**独立接续效果**默认 `not_run`。静态通过不等于独立会话成功，工具也不能发现所有遗漏的语义影响。普通 Quick 不为独立试验自行派生 agent；有相应授权且确实执行后，才登记独立运行与证据。实际失败不能改标 NOT_RUN 隐藏，修复后登记真实复验。衡量读取量时对比相同代表任务的默认输出和必要正文/补读；只测 JSON 输出大小时必须明确范围，不能宣称实际 token 或全项目节省。
+`node <基座>/adapters/quick/agt-quick.mjs --help` 给出实际参数。create/start/revise/checkpoint/reconcile/verify/observe/compact/finish/block/escalate/cancel 写任务记录；list/show/resume/dispatch/validate 供查看与检查。任务 JSON 和 argv 是数据，不当 shell 代码或权限来源。
 
-`compact --input` 示例（将示例改为实际结论；无新决定/遗留项可用空数组）：
-
-```json
-{
-  "outcome": "设置保存后展示当前结果，AC1 回归通过",
-  "rationale": "保存成功后刷新当前视图，沿用已批准的交互规则",
-  "verification_scope": "已检查本次保存路径；相关版本与方法见验收证据",
-  "limitations": "未验证其他浏览器，未执行独立接续试验",
-  "decisions": [{"summary": "按用户已明确的行为修复", "source": "task.request"}],
-  "retained_items": [],
-  "documents": [{"document": "DOC1", "disposition": "consolidated", "summary": "QA 正文合并重复轮次，保留当前结果、未覆盖项和回归入口"}]
-}
-```
-
-`documents` 必须覆盖每个责任项一次；`disposition` 为 `consolidated|already_concise`，每项说明实际整理或无需整理的依据。`decisions[].source` 使用 `task.request` 或真实相对文件路径。遗留项为 `{id, summary, next_action, evidence:[相对文件路径]}`；`resolved_items` 可选，条目为 `{id, disposition: resolved|superseded|cancelled, summary, evidence:[相对文件路径]}`。证据必须是文件，不能引用任务自身的可变 `task.json`。
-
-可选 `recovery_check` 默认为 `{status: "not_run", reason: "未执行独立接续试验"}`。实际 pass/fail 需 `{status, executor, runtime_id, authorization_source, summary, evidence:[路径]}`，执行者不同于本任务执行者，授权来源为 `task.request` 或真实文件；记录实际读取范围、状态恢复、回归定位和未验证项识别结果。工具核验声明及证据文件，不认证 agent 身份或代替语义判断。采用前已冻结的旧 Quick 不自动重写或重开；缺整理时明确显示缺口，通过后续维护任务处理。
-
-## 工具
-
-`node <基座>/adapters/quick/agt-quick.mjs --help`。必需 Git 和 Node.js；单流程无额外依赖。`create/start/revise/checkpoint/reconcile/verify/observe/compact/finish/block/escalate/cancel` 写任务记录；`list/show/resume/dispatch/validate` 只读。任务 JSON、检查 argv 和观察内容是数据，不当作 shell 命令或授权执行。
-
-`validate` 检查任务是否处于 active/complete、全部文档责任项已回落、每项验收具有当前有效证据且上下文收尾有效；未满足返回退出码 1。普通查看或恢复使用 `show/resume`，不会要求任务已验证完成。
-
-责任项示例：`{"id":"DOC1","domain":"product","role":"product/to-c","paths":["docs/product.md"],"change":"更新本次已确认行为及验收条目","depends_on":[],"approval_required":true,"approval_source":"task.request"}`。路径必须换成项目实际正式正文。`reconcile --input <回执JSON>` 的串行示例：`{"document":"DOC1","status":"pass","executor":"当前实际执行者","mode":"serial","summary":"已更新哪些规则、依据与下游影响","evidence":[]}`；正文自动计入证据。delegated 还需 `runtime_id`、`authorization_source`，只记录真实发生的委派与授权。仅明确完成的责任结果可 reconcile；失败或待定结果使用 checkpoint/block 保留问题，不能换成通过回执。
-
-`verify --input <检查JSON>` 接受 `[{"criteria":["AC1"],"argv":["node","--test","tests/example.test.mjs"]}]`，在产品根目录执行，无 shell 展开，保留退出码和输出。`observe --input <观察JSON>` 接受 `[{"criteria":["AC1"],"method":"inspection","status":"pass","summary":"实际核对结果","evidence":["docs/result.md"]}]`；method 可为 inspection/manual，status 可为 pass/fail/not_run。人工通过必须引用用户实际答复或真实观察，不能由 agent 代填。
-
-工具写操作使用短期锁和修订号，拒绝冲突更新；锁保存在当前 worktree 的 Git 目录。异常中断遗留锁时，先检查锁内进程是否仍在运行，仅在确定所有者已结束后删除该锁并恢复任务。工具不是文件写入沙箱，不会阻止其他工具越界；执行者仍须检查实际 diff 与任务范围。
+采用新交付后，代码和 `.planning` 在任务分支正常提交。提交前用 delivery check --staged；最终父任务交付使用 delivery prepare/verify/finish，版本变化重新核对。旧锁定任务维持其旧契约解释，显式迁移才采用新规则，不在普通运行时批量重写旧记录。
