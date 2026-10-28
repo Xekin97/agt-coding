@@ -54,14 +54,19 @@ test("closeout rejects unknown/stale materials and retains plain final documents
 });
 test("final squash excludes process commits and freezes scope; successor inherits completed baseline", t => {
   const { root, dir } = fixture(t), id = "M001", path = ready(root, dir, id), baseline = git(root, ["rev-parse", "main"]), unit = d.unitRoot(id);
+  git(path, ["config", "core.quotePath", "true"]);
+  const unicode = `${unit}/design/添加通用模型-UI示意.html`;
+  write(path, unicode, "Current reviewed design\n");
+  review(path, id); d.seal(path, id, { status: "accepted" }); commit(path);
   write(path, `${unit}/fixed-bug.log`, "obsolete failure"); commit(path); rmSync(join(path, `${unit}/fixed-bug.log`)); commit(path);
   const { result } = deliver(path, id);
+  assert.equal(readFileSync(join(root, unicode), "utf8"), "Current reviewed design\n");
   assert.equal(git(root, ["rev-list", "--count", `${baseline}..main`]), "1"); assert.equal(git(root, ["log", "main", "--format=%H", "--", `${unit}/fixed-bug.log`]), "");
   assert.equal(d.show(root, id).closed, true); assert.equal(d.show(root, id).delivery_commit, result.delivery_commit); assert.equal(d.finish(path, { id }).delivery_commit, result.delivery_commit);
   assert.throws(() => d.assertWritable(root, [`${unit}/product/current.md`]), /read-only/);
   assert.throws(() => d.start(root, { id: "M003", predecessor: "M001", path: join(dir, "bad"), approval: "start" }), /inherit completed M002/);
   const next = d.start(root, { id: "M002", predecessor: "M001", path: join(dir, "M002"), approval: "start" }); assert.equal(next.base_commit, result.delivery_commit);
-  write(next.worktree, `${unit}/product/current.md`, "illegal predecessor edit"); git(next.worktree, ["add", ".planning"]); assert.throws(() => d.checkGit(next.worktree, { staged: true }), /read-only/);
+  write(next.worktree, unicode, "illegal predecessor edit"); git(next.worktree, ["add", ".planning"]); assert.throws(() => d.checkGit(next.worktree, { staged: true }), /read-only/);
 });
 test("one-time remediation is scoped to exact closed ID, branch and baseline and leaves it closed", t => {
   const { root, dir } = fixture(t), path = ready(root, dir); deliver(path, "M001");

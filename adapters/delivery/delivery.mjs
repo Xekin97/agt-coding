@@ -173,7 +173,7 @@ export function gitBytes(root, object) {
 }
 function summaries(root, ref) {
   if (!ref || git(root, ["rev-parse", "--verify", ref], true) === null) return [];
-  return git(root, ["ls-tree", "-r", "--name-only", ref, "--", ARCHIVES]).split("\n").filter(p => p.endsWith("/summary.json")).flatMap(path => {
+  return git(root, ["ls-tree", "-r", "--name-only", "-z", ref, "--", ARCHIVES]).split("\0").filter(p => p.endsWith("/summary.json")).flatMap(path => {
     const s = JSON.parse(gitBytes(root, `${ref}:${path}`));
     return s.schema_version === 2 && s.closed === true ? [{ ...s, summary_path: path, baseline: ref }] : [];
   });
@@ -204,7 +204,7 @@ export function assertWritable(root, paths, { maintenance } = {}) {
 export function checkGit(root, { staged = false, base, ref = "HEAD", maintenance } = {}) {
   const p = branchPolicy(root), baseline = base || p.main_branch || "main";
   const entries = git(root, staged ? ["ls-files", "-z"] : ["ls-tree", "-r", "--name-only", "-z", ref]).split("\0").filter(Boolean);
-  const changed = git(root, staged ? ["diff", "--cached", "--name-only", baseline] : ["diff", "--name-only", baseline, ref]).split("\n").filter(Boolean);
+  const changed = git(root, staged ? ["diff", "--cached", "--name-only", "-z", baseline] : ["diff", "--name-only", "-z", baseline, ref]).split("\0").filter(Boolean);
   for (const s of summaries(root, baseline)) {
     const roots = ownedRoots(s.id, s.owned_roots?.slice(1));
     if (changed.some(path => path.startsWith(`${archiveRoot(s.id)}/`) || roots.includes(path) || belongs(path, roots))) {
@@ -278,7 +278,7 @@ function checkFresh(root, job) {
 }
 function assertReviewedCode(root, summary) {
   assert(git(root, ["merge-base", "--is-ancestor", summary.source_commit, "HEAD"], true) !== null, "Acceptance source is not an ancestor of this branch");
-  const changes = git(root, ["diff", "--name-only", summary.source_commit, "HEAD"]).split("\n").filter(path => path && !path.startsWith(".planning/") && !path.startsWith(`${ARCHIVES}/`));
+  const changes = git(root, ["diff", "--name-only", "-z", summary.source_commit, "HEAD"]).split("\0").filter(path => path && !path.startsWith(".planning/") && !path.startsWith(`${ARCHIVES}/`));
   const expected = new Map((summary.working_changes || []).map(entry => [entry.path, entry]));
   for (const path of changes) assert(expected.has(path), `Code changed after acceptance: ${path}`);
   for (const [path, entry] of expected) {
@@ -300,7 +300,7 @@ function assertFinalPlanningScope(candidate, id, base, authorizationRoot, mainte
     validateSummary(candidate, summary.id, file => gitBytes(candidate, `:${file}`));
     for (const owned of ownedRoots(summary.id, summary.owned_roots?.slice(1))) allowed.add(owned);
   }
-  const changed = git(candidate, ["diff", "--cached", "--no-renames", "--name-only", base]).split("\n").filter(Boolean);
+  const changed = git(candidate, ["diff", "--cached", "--no-renames", "--name-only", "-z", base]).split("\0").filter(Boolean);
   const roots = new Set(changed.map(path => /^(\.planning\/(?:milestones|quick)\/[^/]+)(?:\/|$)/.exec(path)?.[1]).filter(Boolean));
   for (const scope of roots) {
     if (allowed.has(scope)) continue;
