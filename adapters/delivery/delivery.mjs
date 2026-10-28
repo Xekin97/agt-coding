@@ -333,8 +333,8 @@ export function prepare(root, { id, maintenance }) {
   if (old?.source_commit === sourceCommit && old.target_commit === targetCommit && existsSync(old.worktree)) { checkFresh(root, old); return old; }
   const path = resolve(localDirectory(root), "candidates", `${id}-${randomUUID()}`);
   git(root, ["worktree", "add", "--detach", path, targetCommit]);
-  const result = spawnSync("git", ["merge", "--squash", "--no-commit", sourceCommit], { cwd: path, encoding: "utf8" });
-  assert(result.status === 0, `Squash conflict retained at ${path}; resolve explicitly before preparing a fresh candidate: ${result.stderr}`);
+  const result = spawnSync("git", ["merge", "--squash", "--no-commit", "--quiet", "--no-stat", sourceCommit], { cwd: path, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+  assert(result.status === 0, `Squash preparation failed; candidate retained at ${path}: ${result.error?.message || `exit ${result.status}`}${result.signal ? ` (${result.signal})` : ""}\n${[result.stderr, result.stdout].filter(Boolean).join("\n").slice(-4000)}`);
   // Live workstream binding belongs to the parent branch, never to main.
   for (const configPath of [".planning/agt/workstreams.json", ".agt/workstreams.json"]) {
     if (!existsSync(inside(path, configPath))) continue;
